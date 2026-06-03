@@ -1,0 +1,61 @@
+name: DragyDash
+options:
+  minimumXcodeGenVersion: 2.42.0
+  deploymentTarget:
+    iOS: "18.0"
+settings:
+  base:
+    SWIFT_VERSION: 6.0
+targets:
+  DragyDash:
+    type: application
+    platform: iOS
+    sources:
+      - DragyDash
+    dependencies:
+      - target: DragyDashLiveActivityExtension
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.dragydash
+        INFOPLIST_FILE: DragyDash/Resources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: YES
+    info:
+      path: DragyDash/Resources/Info.plist
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: com.example.dragydash
+            CFBundleURLSchemes:
+              - dragydash
+        CFBundleDisplayName: DragyDash
+        NSSupportsLiveActivities: true
+        NSSupportsLiveActivitiesFrequentUpdates: true
+        UILaunchScreen: {}
+        UIBackgroundModes:
+          - bluetooth-central
+        UIRequiresFullScreen: true
+        NSBluetoothAlwaysUsageDescription: DragyDash connects to your Dragy Pro over Bluetooth to display live GPS and sensor telemetry.
+  DragyDashLiveActivityExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - DragyDashLiveActivityExtension
+      - DragyDash/LiveActivity/LiveSpeedActivityAttributes.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.dragydash.liveactivity
+        INFOPLIST_FILE: DragyDashLiveActivityExtension/Info.plist
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+  DragyDashTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - DragyDashTests
+    info:
+      path: DragyDashTests/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: DragyDashTests
+    dependencies:
+      - target: DragyDash

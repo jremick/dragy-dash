@@ -1,0 +1,663 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		09366C1A4A098AD1AC3FC6B2 /* DragyDashLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 6DA00F9EBBB57F319DC5C063 /* DragyDashLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		12D912E85A4EBFDE2431B7D6 /* AppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFF751861C8B4E72A666774B /* AppView.swift */; };
+		1D836145CAFAD224DAB9D2AE /* DragyDeviceStatusDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7AF86DA154709C976F331EC /* DragyDeviceStatusDecoderTests.swift */; };
+		21248C0211A06F8D8874B941 /* TelemetryMotionEstimatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB11EBE743C3B537A6AE15C /* TelemetryMotionEstimatorTests.swift */; };
+		3023F0240A0122B96100C670 /* LiveSpeedActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A065C0DA06B5F29D4481E47C /* LiveSpeedActivityController.swift */; };
+		34B1C770486BAF663F76E1F5 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8837247E91A773B47213FCFC /* DashboardView.swift */; };
+		37BDE7DF78384996AD4DD0A1 /* DragyPacketDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93849E167111A0305C270F03 /* DragyPacketDecoder.swift */; };
+		37C9986A73A8CEFD2540640B /* DragyPacketReassembler.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF4C61754D58445BE754FF0A /* DragyPacketReassembler.swift */; };
+		3954188FE264FEA1B79A9168 /* MockTelemetryProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE4321F1F613CBDCC219DA4 /* MockTelemetryProvider.swift */; };
+		3FBBF9D7E7A3A1CC7661AF17 /* SavedSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ECE3C5CD300122A08AD5CBA /* SavedSessionStore.swift */; };
+		5616CF69D74850F5A8E518C7 /* TelemetryRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0480C7E82BAE1BEFEA5DBC3F /* TelemetryRecorderTests.swift */; };
+		687486F2F66CBFD459ADBCB9 /* DragyDashLiveActivityBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B19E9110F8324B2842F27F /* DragyDashLiveActivityBundle.swift */; };
+		6D18119B389704D649C60FAD /* DragyPacketDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0E56AECD0257D35D353DFD2 /* DragyPacketDecoderTests.swift */; };
+		73EAE97DDBD25D4FC882F020 /* DragySPPProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 290E964373F955A19A004CC5 /* DragySPPProtocol.swift */; };
+		75CD5D03A3932E94C808F2E0 /* DragyDeviceStatusDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 736DD665B8F69FBCC60FFEED /* DragyDeviceStatusDecoder.swift */; };
+		807C324C28098B3DCDC7ACAC /* DragySPPProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08303295E6EA20742557F591 /* DragySPPProtocolTests.swift */; };
+		85A807BF8AD841A7FA3FE38A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8E53BB512DB167329CA06F67 /* Assets.xcassets */; };
+		868305B70B0BCA18E4CC85ED /* DragyDashApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35B746811FEB01E58003390E /* DragyDashApp.swift */; };
+		87C0BC3EAC9D365BF2D88789 /* LiveSpeedActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 600CABD6706A0250BE0457B0 /* LiveSpeedActivityWidget.swift */; };
+		8CFA2898AF2F5A16FFC1A76E /* SavedSessionStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C868EA6047F5AC177D38B9C /* SavedSessionStoreTests.swift */; };
+		95FE9F9F2957C5D7419D89FC /* TelemetryDisplayFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D776CE7125193BEA0B59D71 /* TelemetryDisplayFilterTests.swift */; };
+		98C5DB5E32B44054354AD0DB /* LiveSpeedActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED139065639D1E748F40FA55 /* LiveSpeedActivityAttributes.swift */; };
+		A23CE9272BFAA1C0222C770D /* BluetoothModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC840C706B2464D6D2F8ABD /* BluetoothModels.swift */; };
+		AAD1147ABCAC903C78942B2B /* TelemetryMotionEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 143C94BDEC78F729A678BFB8 /* TelemetryMotionEstimator.swift */; };
+		B340B455675220E2EFF6064D /* BLEDiagnosticReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71694FC5EE0771801903AAA5 /* BLEDiagnosticReport.swift */; };
+		BC650D2AA444903E0EFB96EF /* LiveSpeedActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED139065639D1E748F40FA55 /* LiveSpeedActivityAttributes.swift */; };
+		D77FEDE712C097C279C655D8 /* TelemetryRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0AADA81D0BDEFF56BCA3948 /* TelemetryRecorder.swift */; };
+		DD8D6FF956A3ED04B80BF17C /* TelemetryDisplayFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 527A9262DCF7848D466D1E1E /* TelemetryDisplayFilter.swift */; };
+		E44D49A8B75BF399E55DC614 /* DragyBluetoothService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3748CA36B2548FCB132CAFB7 /* DragyBluetoothService.swift */; };
+		F84DAEC97A3BA1334DE4841C /* TelemetryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2BD7C50A9BB05DBEE9E90DE /* TelemetryModels.swift */; };
+		FD46300DA393F0B0DDBA14E2 /* TelemetryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1F88FF8F57C40F591D713E1 /* TelemetryStore.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		29A9BA5C22B73989E7207B80 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9F9CFE4F9AF323840D5FD658 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D0E5889DF2FBD89C3AA7FF3E;
+			remoteInfo = DragyDash;
+		};
+		2C74AEBFAE77F32A346C7863 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 9F9CFE4F9AF323840D5FD658 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0082F038AD56FA9DA1C3DE45;
+			remoteInfo = DragyDashLiveActivityExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B321D90FBC6330C7EE7AA461 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				09366C1A4A098AD1AC3FC6B2 /* DragyDashLiveActivityExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		00B19E9110F8324B2842F27F /* DragyDashLiveActivityBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragyDashLiveActivityBundle.swift; sourceTree = "<group>"; };
+		0480C7E82BAE1BEFEA5DBC3F /* TelemetryRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryRecorderTests.swift; sourceTree = "<group>"; };
+		08303295E6EA20742557F591 /* DragySPPProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragySPPProtocolTests.swift; sourceTree = "<group>"; };
+		143C94BDEC78F729A678BFB8 /* TelemetryMotionEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryMotionEstimator.swift; sourceTree = "<group>"; };
+		1ECE3C5CD300122A08AD5CBA /* SavedSessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedSessionStore.swift; sourceTree = "<group>"; };
+		2672B7E82BE139A33687F864 /* DragyDash.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DragyDash.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		290E964373F955A19A004CC5 /* DragySPPProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragySPPProtocol.swift; sourceTree = "<group>"; };
+		35B746811FEB01E58003390E /* DragyDashApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragyDashApp.swift; sourceTree = "<group>"; };
+		3748CA36B2548FCB132CAFB7 /* DragyBluetoothService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragyBluetoothService.swift; sourceTree = "<group>"; };
+		47D462BCFCE980AA1993A970 /* DragyDashTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DragyDashTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C868EA6047F5AC177D38B9C /* SavedSessionStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedSessionStoreTests.swift; sourceTree = "<group>"; };
+		527A9262DCF7848D466D1E1E /* TelemetryDisplayFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryDisplayFilter.swift; sourceTree = "<group>"; };
+		5BC840C706B2464D6D2F8ABD /* BluetoothModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BluetoothModels.swift; sourceTree = "<group>"; };
+		5D776CE7125193BEA0B59D71 /* TelemetryDisplayFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryDisplayFilterTests.swift; sourceTree = "<group>"; };
+		600CABD6706A0250BE0457B0 /* LiveSpeedActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSpeedActivityWidget.swift; sourceTree = "<group>"; };
+		6DA00F9EBBB57F319DC5C063 /* DragyDashLiveActivityExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DragyDashLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		71694FC5EE0771801903AAA5 /* BLEDiagnosticReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BLEDiagnosticReport.swift; sourceTree = "<group>"; };
+		736DD665B8F69FBCC60FFEED /* DragyDeviceStatusDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragyDeviceStatusDecoder.swift; sourceTree = "<group>"; };
+		78F98ED68207B634FB7BC240 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8837247E91A773B47213FCFC /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		8E53BB512DB167329CA06F67 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		93849E167111A0305C270F03 /* DragyPacketDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragyPacketDecoder.swift; sourceTree = "<group>"; };
+		A065C0DA06B5F29D4481E47C /* LiveSpeedActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSpeedActivityController.swift; sourceTree = "<group>"; };
+		A7AF86DA154709C976F331EC /* DragyDeviceStatusDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragyDeviceStatusDecoderTests.swift; sourceTree = "<group>"; };
+		BBE4321F1F613CBDCC219DA4 /* MockTelemetryProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockTelemetryProvider.swift; sourceTree = "<group>"; };
+		BF4C61754D58445BE754FF0A /* DragyPacketReassembler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragyPacketReassembler.swift; sourceTree = "<group>"; };
+		C0E56AECD0257D35D353DFD2 /* DragyPacketDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DragyPacketDecoderTests.swift; sourceTree = "<group>"; };
+		D0AADA81D0BDEFF56BCA3948 /* TelemetryRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryRecorder.swift; sourceTree = "<group>"; };
+		D1F88FF8F57C40F591D713E1 /* TelemetryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryStore.swift; sourceTree = "<group>"; };
+		D5AB7E8936834253A19AA608 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		D6CA0A29A76BE68A7E4A4C69 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		DAB11EBE743C3B537A6AE15C /* TelemetryMotionEstimatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryMotionEstimatorTests.swift; sourceTree = "<group>"; };
+		ED139065639D1E748F40FA55 /* LiveSpeedActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSpeedActivityAttributes.swift; sourceTree = "<group>"; };
+		EFF751861C8B4E72A666774B /* AppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppView.swift; sourceTree = "<group>"; };
+		F2BD7C50A9BB05DBEE9E90DE /* TelemetryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryModels.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		17EA77168C5CECF234045D7A /* DragyDashLiveActivityExtension */ = {
+			isa = PBXGroup;
+			children = (
+				00B19E9110F8324B2842F27F /* DragyDashLiveActivityBundle.swift */,
+				D5AB7E8936834253A19AA608 /* Info.plist */,
+				600CABD6706A0250BE0457B0 /* LiveSpeedActivityWidget.swift */,
+			);
+			path = DragyDashLiveActivityExtension;
+			sourceTree = "<group>";
+		};
+		250BADF90628C71D2F7B66E2 /* DragyDash */ = {
+			isa = PBXGroup;
+			children = (
+				EFF751861C8B4E72A666774B /* AppView.swift */,
+				35B746811FEB01E58003390E /* DragyDashApp.swift */,
+				2F30E5D514897FBFFAA4CE88 /* LiveActivity */,
+				A4ED03E16D2BFF8519693BCD /* Models */,
+				A77D0C50EE0DB3A0FEA6EC1D /* Resources */,
+				F5E5EEE6D89B6B5A366A97C1 /* Services */,
+				B9B53D2D27424330C02DF97D /* Views */,
+			);
+			path = DragyDash;
+			sourceTree = "<group>";
+		};
+		2F30E5D514897FBFFAA4CE88 /* LiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				ED139065639D1E748F40FA55 /* LiveSpeedActivityAttributes.swift */,
+			);
+			path = LiveActivity;
+			sourceTree = "<group>";
+		};
+		4F8F8E8775E0F7C9744CD17B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				78F98ED68207B634FB7BC240 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		9A17EA311D6DE253758F8E06 = {
+			isa = PBXGroup;
+			children = (
+				250BADF90628C71D2F7B66E2 /* DragyDash */,
+				17EA77168C5CECF234045D7A /* DragyDashLiveActivityExtension */,
+				C1AD82EDDB96E7A5DBB17CAC /* DragyDashTests */,
+				B347B54B4050F80E1528E5E0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A4ED03E16D2BFF8519693BCD /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				5BC840C706B2464D6D2F8ABD /* BluetoothModels.swift */,
+				F2BD7C50A9BB05DBEE9E90DE /* TelemetryModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A77D0C50EE0DB3A0FEA6EC1D /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				8E53BB512DB167329CA06F67 /* Assets.xcassets */,
+				D6CA0A29A76BE68A7E4A4C69 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		B347B54B4050F80E1528E5E0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2672B7E82BE139A33687F864 /* DragyDash.app */,
+				6DA00F9EBBB57F319DC5C063 /* DragyDashLiveActivityExtension.appex */,
+				47D462BCFCE980AA1993A970 /* DragyDashTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		B9B53D2D27424330C02DF97D /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				8837247E91A773B47213FCFC /* DashboardView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		C1AD82EDDB96E7A5DBB17CAC /* DragyDashTests */ = {
+			isa = PBXGroup;
+			children = (
+				A7AF86DA154709C976F331EC /* DragyDeviceStatusDecoderTests.swift */,
+				C0E56AECD0257D35D353DFD2 /* DragyPacketDecoderTests.swift */,
+				08303295E6EA20742557F591 /* DragySPPProtocolTests.swift */,
+				4C868EA6047F5AC177D38B9C /* SavedSessionStoreTests.swift */,
+				5D776CE7125193BEA0B59D71 /* TelemetryDisplayFilterTests.swift */,
+				DAB11EBE743C3B537A6AE15C /* TelemetryMotionEstimatorTests.swift */,
+				0480C7E82BAE1BEFEA5DBC3F /* TelemetryRecorderTests.swift */,
+				4F8F8E8775E0F7C9744CD17B /* Resources */,
+			);
+			path = DragyDashTests;
+			sourceTree = "<group>";
+		};
+		F5E5EEE6D89B6B5A366A97C1 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				71694FC5EE0771801903AAA5 /* BLEDiagnosticReport.swift */,
+				3748CA36B2548FCB132CAFB7 /* DragyBluetoothService.swift */,
+				736DD665B8F69FBCC60FFEED /* DragyDeviceStatusDecoder.swift */,
+				93849E167111A0305C270F03 /* DragyPacketDecoder.swift */,
+				BF4C61754D58445BE754FF0A /* DragyPacketReassembler.swift */,
+				290E964373F955A19A004CC5 /* DragySPPProtocol.swift */,
+				A065C0DA06B5F29D4481E47C /* LiveSpeedActivityController.swift */,
+				BBE4321F1F613CBDCC219DA4 /* MockTelemetryProvider.swift */,
+				1ECE3C5CD300122A08AD5CBA /* SavedSessionStore.swift */,
+				527A9262DCF7848D466D1E1E /* TelemetryDisplayFilter.swift */,
+				143C94BDEC78F729A678BFB8 /* TelemetryMotionEstimator.swift */,
+				D0AADA81D0BDEFF56BCA3948 /* TelemetryRecorder.swift */,
+				D1F88FF8F57C40F591D713E1 /* TelemetryStore.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0082F038AD56FA9DA1C3DE45 /* DragyDashLiveActivityExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 771A524CFA51A7975BC30375 /* Build configuration list for PBXNativeTarget "DragyDashLiveActivityExtension" */;
+			buildPhases = (
+				1DEC8FA75CE32A11A6544332 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DragyDashLiveActivityExtension;
+			packageProductDependencies = (
+			);
+			productName = DragyDashLiveActivityExtension;
+			productReference = 6DA00F9EBBB57F319DC5C063 /* DragyDashLiveActivityExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		9357B1B13A8D80C0F32F011C /* DragyDashTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 81C7F5FFBD31CC92C3A75840 /* Build configuration list for PBXNativeTarget "DragyDashTests" */;
+			buildPhases = (
+				F6282DE8F8390F821A7C1CFB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A3E363A7A7137BC1143B1954 /* PBXTargetDependency */,
+			);
+			name = DragyDashTests;
+			packageProductDependencies = (
+			);
+			productName = DragyDashTests;
+			productReference = 47D462BCFCE980AA1993A970 /* DragyDashTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		D0E5889DF2FBD89C3AA7FF3E /* DragyDash */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FC8E6369AC75C17857B3FF76 /* Build configuration list for PBXNativeTarget "DragyDash" */;
+			buildPhases = (
+				7350443C8E84CC42E62C6D78 /* Sources */,
+				32D5D6F66CAC6C9842DA039A /* Resources */,
+				B321D90FBC6330C7EE7AA461 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				28F5C06799F2472CCA98F4CE /* PBXTargetDependency */,
+			);
+			name = DragyDash;
+			packageProductDependencies = (
+			);
+			productName = DragyDash;
+			productReference = 2672B7E82BE139A33687F864 /* DragyDash.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		9F9CFE4F9AF323840D5FD658 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = C14CEB2051ACC495D4FB7A2B /* Build configuration list for PBXProject "DragyDash" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 9A17EA311D6DE253758F8E06;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = B347B54B4050F80E1528E5E0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D0E5889DF2FBD89C3AA7FF3E /* DragyDash */,
+				0082F038AD56FA9DA1C3DE45 /* DragyDashLiveActivityExtension */,
+				9357B1B13A8D80C0F32F011C /* DragyDashTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		32D5D6F66CAC6C9842DA039A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				85A807BF8AD841A7FA3FE38A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1DEC8FA75CE32A11A6544332 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				687486F2F66CBFD459ADBCB9 /* DragyDashLiveActivityBundle.swift in Sources */,
+				BC650D2AA444903E0EFB96EF /* LiveSpeedActivityAttributes.swift in Sources */,
+				87C0BC3EAC9D365BF2D88789 /* LiveSpeedActivityWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7350443C8E84CC42E62C6D78 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				12D912E85A4EBFDE2431B7D6 /* AppView.swift in Sources */,
+				B340B455675220E2EFF6064D /* BLEDiagnosticReport.swift in Sources */,
+				A23CE9272BFAA1C0222C770D /* BluetoothModels.swift in Sources */,
+				34B1C770486BAF663F76E1F5 /* DashboardView.swift in Sources */,
+				E44D49A8B75BF399E55DC614 /* DragyBluetoothService.swift in Sources */,
+				868305B70B0BCA18E4CC85ED /* DragyDashApp.swift in Sources */,
+				75CD5D03A3932E94C808F2E0 /* DragyDeviceStatusDecoder.swift in Sources */,
+				37BDE7DF78384996AD4DD0A1 /* DragyPacketDecoder.swift in Sources */,
+				37C9986A73A8CEFD2540640B /* DragyPacketReassembler.swift in Sources */,
+				73EAE97DDBD25D4FC882F020 /* DragySPPProtocol.swift in Sources */,
+				98C5DB5E32B44054354AD0DB /* LiveSpeedActivityAttributes.swift in Sources */,
+				3023F0240A0122B96100C670 /* LiveSpeedActivityController.swift in Sources */,
+				3954188FE264FEA1B79A9168 /* MockTelemetryProvider.swift in Sources */,
+				3FBBF9D7E7A3A1CC7661AF17 /* SavedSessionStore.swift in Sources */,
+				DD8D6FF956A3ED04B80BF17C /* TelemetryDisplayFilter.swift in Sources */,
+				F84DAEC97A3BA1334DE4841C /* TelemetryModels.swift in Sources */,
+				AAD1147ABCAC903C78942B2B /* TelemetryMotionEstimator.swift in Sources */,
+				D77FEDE712C097C279C655D8 /* TelemetryRecorder.swift in Sources */,
+				FD46300DA393F0B0DDBA14E2 /* TelemetryStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F6282DE8F8390F821A7C1CFB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1D836145CAFAD224DAB9D2AE /* DragyDeviceStatusDecoderTests.swift in Sources */,
+				6D18119B389704D649C60FAD /* DragyPacketDecoderTests.swift in Sources */,
+				807C324C28098B3DCDC7ACAC /* DragySPPProtocolTests.swift in Sources */,
+				8CFA2898AF2F5A16FFC1A76E /* SavedSessionStoreTests.swift in Sources */,
+				95FE9F9F2957C5D7419D89FC /* TelemetryDisplayFilterTests.swift in Sources */,
+				21248C0211A06F8D8874B941 /* TelemetryMotionEstimatorTests.swift in Sources */,
+				5616CF69D74850F5A8E518C7 /* TelemetryRecorderTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		28F5C06799F2472CCA98F4CE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0082F038AD56FA9DA1C3DE45 /* DragyDashLiveActivityExtension */;
+			targetProxy = 2C74AEBFAE77F32A346C7863 /* PBXContainerItemProxy */;
+		};
+		A3E363A7A7137BC1143B1954 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D0E5889DF2FBD89C3AA7FF3E /* DragyDash */;
+			targetProxy = 29A9BA5C22B73989E7207B80 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		098CE7497D3BB0401E93F365 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = DragyDash/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.dragydash;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		1944DC8C3AC6003CAFE9DCFF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		4110F6A07AA54FEFF3856BC4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				INFOPLIST_FILE = DragyDashLiveActivityExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.dragydash.liveactivity;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		435D55F32BE87C8EF7068F3D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = DragyDash/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.dragydash;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		7FE8261D011B68F480713865 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				INFOPLIST_FILE = DragyDashTests/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DragyDash.app/DragyDash";
+			};
+			name = Release;
+		};
+		DD2594730C27B646B141E102 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				INFOPLIST_FILE = DragyDashLiveActivityExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.dragydash.liveactivity;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		ECA7DBD1E37E52FC60C543F9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				INFOPLIST_FILE = DragyDashTests/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/DragyDash.app/DragyDash";
+			};
+			name = Debug;
+		};
+		F787B24260CFEB3D2124F353 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		771A524CFA51A7975BC30375 /* Build configuration list for PBXNativeTarget "DragyDashLiveActivityExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4110F6A07AA54FEFF3856BC4 /* Debug */,
+				DD2594730C27B646B141E102 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		81C7F5FFBD31CC92C3A75840 /* Build configuration list for PBXNativeTarget "DragyDashTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ECA7DBD1E37E52FC60C543F9 /* Debug */,
+				7FE8261D011B68F480713865 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C14CEB2051ACC495D4FB7A2B /* Build configuration list for PBXProject "DragyDash" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F787B24260CFEB3D2124F353 /* Debug */,
+				1944DC8C3AC6003CAFE9DCFF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FC8E6369AC75C17857B3FF76 /* Build configuration list for PBXNativeTarget "DragyDash" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				098CE7497D3BB0401E93F365 /* Debug */,
+				435D55F32BE87C8EF7068F3D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 9F9CFE4F9AF323840D5FD658 /* Project object */;
+}

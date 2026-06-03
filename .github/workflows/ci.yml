@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: iOS tests
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Select simulator
+        id: simulator
+        run: |
+          SIMULATOR_NAME=$(python3 - <<'PY'
+          import json
+          import subprocess
+
+          payload = subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "--json"])
+          devices = json.loads(payload)["devices"]
+
+          for runtime in sorted(devices.keys(), reverse=True):
+              iphones = [
+                  device["name"]
+                  for device in devices[runtime]
+                  if device.get("isAvailable") and device.get("name", "").startswith("iPhone")
+              ]
+              if iphones:
+                  print(iphones[-1])
+                  raise SystemExit(0)
+
+          raise SystemExit("No available iPhone simulator found")
+          PY
+          )
+          echo "name=${SIMULATOR_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        run: |
+          xcodebuild \
+            -project DragyDash.xcodeproj \
+            -scheme DragyDash \
+            -destination "platform=iOS Simulator,name=${{ steps.simulator.outputs.name }},OS=latest" \
+            test
