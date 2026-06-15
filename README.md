@@ -118,4 +118,4 @@ Public issues should use redacted examples only. See [SECURITY.md](SECURITY.md) 
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+[Apache License 2.0](LICENSE).
