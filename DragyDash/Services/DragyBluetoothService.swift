@@ -362,7 +362,7 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
         characteristicUUID: characteristic.uuid.uuidString,
         sourceName: peripheral.name ?? "Dragy Pro"
       ) {
-        log("TELEMETRY speed_kph=\(String(format: "%.3f", snapshot.speedKPH)) fix=\(snapshot.fixQuality.rawValue) coordinate=\(snapshot.coordinateLabel)")
+        log("TELEMETRY speed_kph=\(String(format: "%.3f", snapshot.speedKPH)) fix=\(snapshot.fixQuality.rawValue)")
         onTelemetry(snapshot)
       }
     }
