@@ -1,13 +1,13 @@
 import Foundation
 
-enum TelemetrySourceMode: String, CaseIterable, Identifiable {
+enum TelemetrySourceMode: String, CaseIterable, Identifiable, Sendable {
   case mock = "Mock"
   case bluetooth = "Dragy BLE"
 
   var id: String { rawValue }
 }
 
-enum TelemetryUnitSystem: String, CaseIterable, Identifiable {
+enum TelemetryUnitSystem: String, CaseIterable, Identifiable, Sendable {
   case metric = "Metric"
   case imperial = "Imperial"
 
@@ -68,15 +68,23 @@ enum TelemetryUnitSystem: String, CaseIterable, Identifiable {
   }
 }
 
-enum FixQuality: String {
+enum FixQuality: String, Sendable {
   case none = "No Fix"
   case twoD = "2D"
   case threeD = "3D"
   case estimated = "Estimated"
 }
 
-struct TelemetrySnapshot: Equatable {
+enum GPSQuality: Equatable, Sendable {
+  case none
+  case poor
+  case fair
+  case good
+}
+
+struct TelemetrySnapshot: Equatable, Sendable {
   var timestamp: Date
+  var gpsTimeOfWeekMS: UInt32? = nil
   var speedKPH: Double
   var headingDegrees: Double?
   var latitude: Double? = nil
@@ -93,6 +101,27 @@ struct TelemetrySnapshot: Equatable {
 
   var speedMPH: Double {
     speedKPH * 0.621371
+  }
+
+  var isUsableFix: Bool {
+    fixQuality != .none && (satelliteCount ?? 1) > 0
+  }
+
+  var gpsQuality: GPSQuality {
+    guard isUsableFix, let accuracy = horizontalAccuracyMeters, accuracy.isFinite else {
+      return .none
+    }
+
+    let sats = satelliteCount ?? 0
+    if fixQuality == .threeD && sats >= 8 && accuracy <= 2.5 {
+      return .good
+    }
+
+    if (fixQuality == .threeD || fixQuality == .estimated) && sats >= 6 && accuracy <= 5.0 {
+      return .fair
+    }
+
+    return .poor
   }
 
   var coordinateLabel: String {
@@ -119,7 +148,7 @@ struct TelemetrySnapshot: Equatable {
   )
 }
 
-struct TelemetryRunStats: Equatable {
+struct TelemetryRunStats: Equatable, Sendable {
   var isRecording: Bool
   var startedAt: Date?
   var sampleCount: Int

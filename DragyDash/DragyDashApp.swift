@@ -2,7 +2,7 @@ import SwiftUI
 
 @main
 struct DragyDashApp: App {
-  @StateObject private var store = TelemetryStore()
+  @State private var store = TelemetryStore()
 
   var body: some Scene {
     WindowGroup {

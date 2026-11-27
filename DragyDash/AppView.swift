@@ -1,17 +1,20 @@
 import SwiftUI
 
 struct AppView: View {
-  @ObservedObject var store: TelemetryStore
+  var store: TelemetryStore
 
   var body: some View {
     DashboardView(store: store)
-    .task {
-      #if targetEnvironment(simulator)
-      store.startMockTelemetry()
-      #else
-      store.setSourceMode(.bluetooth)
-      #endif
-    }
+      .onOpenURL { _ in
+        // Deep links from the Dynamic Island / Live Activity foreground the dashboard.
+      }
+      .task {
+        #if targetEnvironment(simulator)
+        store.startMockTelemetry()
+        #else
+        store.setSourceMode(.bluetooth)
+        #endif
+      }
   }
 }
 

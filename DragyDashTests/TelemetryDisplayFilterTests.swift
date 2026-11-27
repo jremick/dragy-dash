@@ -19,6 +19,17 @@ struct TelemetryDisplayFilterTests {
     #expect(filter.apply(to: snapshot(speedKPH: 2.0)).speedKPH == 0)
   }
 
+  @Test func zerosSpeedAndResetsMotionOnNoFix() {
+    var filter = TelemetryDisplayFilter()
+    #expect(filter.apply(to: snapshot(speedKPH: 20.0)).speedKPH == 20.0)
+
+    var noFix = snapshot(speedKPH: 20.0)
+    noFix.fixQuality = .none
+    #expect(filter.apply(to: noFix).speedKPH == 0)
+    // After reset, 3.5 km/h should remain filtered as stationary.
+    #expect(filter.apply(to: snapshot(speedKPH: 3.5)).speedKPH == 0)
+  }
+
   private func snapshot(speedKPH: Double) -> TelemetrySnapshot {
     TelemetrySnapshot(
       timestamp: Date(timeIntervalSince1970: 1_800_000_000),

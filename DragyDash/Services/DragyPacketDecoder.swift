@@ -1,7 +1,8 @@
 import Foundation
 
-struct DragyPacketDecoder {
+struct DragyPacketDecoder: Sendable {
   func decode(_ data: Data, characteristicUUID: String, sourceName: String) -> TelemetrySnapshot? {
+    _ = characteristicUUID
     if let snapshot = decodeUBXNavPVT(data, sourceName: sourceName) {
       return snapshot
     }
@@ -14,7 +15,7 @@ struct DragyPacketDecoder {
         altitudeMeters: nil,
         horizontalAccuracyMeters: nil,
         satelliteCount: nil,
-        fixQuality: .none,
+        fixQuality: .estimated,
         longitudinalG: nil,
         lateralG: nil,
         verticalG: nil,
@@ -45,6 +46,10 @@ struct DragyPacketDecoder {
   }
 
   private func decodeNMEASentence(_ sentence: String, into partial: inout NMEAPartial) {
+    guard validateNMEAChecksumIfPresent(sentence) else {
+      return
+    }
+
     let fields = sentence.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
     guard let type = fields.first?.suffix(3) else {
       return
@@ -62,6 +67,30 @@ struct DragyPacketDecoder {
     }
   }
 
+  private func validateNMEAChecksumIfPresent(_ sentence: String) -> Bool {
+    guard let starIndex = sentence.firstIndex(of: "*") else {
+      return true
+    }
+
+    let startIndex = sentence.first == "$" ? sentence.index(after: sentence.startIndex) : sentence.startIndex
+    guard startIndex <= starIndex else {
+      return false
+    }
+
+    let checksumStart = sentence.index(after: starIndex)
+    let expectedHex = String(sentence[checksumStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+    guard expectedHex.count == 2, let expected = UInt8(expectedHex, radix: 16) else {
+      return false
+    }
+
+    var computed: UInt8 = 0
+    for byte in sentence[startIndex..<starIndex].utf8 {
+      computed ^= byte
+    }
+
+    return computed == expected
+  }
+
   private func decodeRMC(_ fields: [String], into partial: inout NMEAPartial) {
     guard fields.count > 8 else {
       return
@@ -76,10 +105,10 @@ struct DragyPacketDecoder {
     }
 
     let speedKnots = clean(fields[7]).flatMap(Double.init) ?? 0
-    partial.speedKPH = speedKnots * 1.852
+    partial.speedKPH = max(0, speedKnots * 1.852)
     partial.headingDegrees = clean(fields[8]).flatMap(Double.init)
-    partial.latitude = coordinate(value: fields[3], hemisphere: fields[4])
-    partial.longitude = coordinate(value: fields[5], hemisphere: fields[6])
+    partial.latitude = coordinate(value: fields[3], hemisphere: fields[4], maxDegrees: 90)
+    partial.longitude = coordinate(value: fields[5], hemisphere: fields[6], maxDegrees: 180)
     partial.fixQuality = .threeD
   }
 
@@ -89,8 +118,8 @@ struct DragyPacketDecoder {
     }
 
     partial.hasData = true
-    partial.latitude = partial.latitude ?? coordinate(value: fields[2], hemisphere: fields[3])
-    partial.longitude = partial.longitude ?? coordinate(value: fields[4], hemisphere: fields[5])
+    partial.latitude = partial.latitude ?? coordinate(value: fields[2], hemisphere: fields[3], maxDegrees: 90)
+    partial.longitude = partial.longitude ?? coordinate(value: fields[4], hemisphere: fields[5], maxDegrees: 180)
 
     let fixCode = clean(fields[6]).flatMap(Int.init) ?? 0
     partial.fixQuality = fixQuality(forGGAQualityCode: fixCode)
@@ -108,21 +137,25 @@ struct DragyPacketDecoder {
 
     partial.hasData = true
     partial.headingDegrees = clean(fields[1]).flatMap(Double.init)
-    partial.speedKPH = clean(fields[7]).flatMap(Double.init)
+    partial.speedKPH = clean(fields[7]).flatMap(Double.init).map { max(0, $0) }
     if partial.speedKPH == nil, let speedKnots = clean(fields[5]).flatMap(Double.init) {
-      partial.speedKPH = speedKnots * 1.852
+      partial.speedKPH = max(0, speedKnots * 1.852)
     }
     if partial.fixQuality == nil {
       partial.fixQuality = .threeD
     }
   }
 
-  private func coordinate(value: String, hemisphere: String) -> Double? {
+  private func coordinate(value: String, hemisphere: String, maxDegrees: Double) -> Double? {
     guard let cleaned = clean(value), !cleaned.isEmpty else {
       return nil
     }
 
-    let hemisphere = clean(hemisphere) ?? ""
+    let hemisphere = clean(hemisphere)?.uppercased() ?? ""
+    guard hemisphere == "N" || hemisphere == "S" || hemisphere == "E" || hemisphere == "W" else {
+      return nil
+    }
+
     let degreeDigits = hemisphere == "E" || hemisphere == "W" ? 3 : 2
     guard cleaned.count > degreeDigits else {
       return nil
@@ -130,12 +163,21 @@ struct DragyPacketDecoder {
 
     let degreeText = String(cleaned.prefix(degreeDigits))
     let minuteText = String(cleaned.dropFirst(degreeDigits))
-    guard let degrees = Double(degreeText), let minutes = Double(minuteText) else {
+    guard let degrees = Double(degreeText),
+          let minutes = Double(minuteText),
+          degrees >= 0,
+          minutes >= 0,
+          minutes < 60 else {
+      return nil
+    }
+
+    let magnitude = degrees + minutes / 60
+    guard magnitude <= maxDegrees else {
       return nil
     }
 
     let sign = hemisphere == "S" || hemisphere == "W" ? -1.0 : 1.0
-    return sign * (degrees + minutes / 60)
+    return sign * magnitude
   }
 
   private func fixQuality(forGGAQualityCode code: Int) -> FixQuality {
@@ -199,6 +241,7 @@ struct DragyPacketDecoder {
       return nil
     }
 
+    let iTOW = u32LE(bytes, payloadStart)
     let fixType = Int(bytes[payloadStart + 20])
     let satelliteCount = Int(bytes[payloadStart + 23])
     let longitude = Double(i32LE(bytes, payloadStart + 24)) / 10_000_000
@@ -206,12 +249,14 @@ struct DragyPacketDecoder {
     let altitudeMeters = Double(i32LE(bytes, payloadStart + 36)) / 1000
     let horizontalAccuracyMeters = Double(u32LE(bytes, payloadStart + 40)) / 1000
     let fixQuality = fixQuality(forUBXFixType: fixType)
+    let hasUsableFix = fixQuality != .none && satelliteCount > 0
     let decodedSpeedKPH = max(0, Double(i32LE(bytes, payloadStart + 60)) * 3.6 / 1000)
-    let speedKPH = fixQuality == .none ? 0 : decodedSpeedKPH
+    let speedKPH = hasUsableFix ? decodedSpeedKPH : 0
     let headingDegrees = Double(i32LE(bytes, payloadStart + 64)) * 0.00001
 
     return TelemetrySnapshot(
       timestamp: .now,
+      gpsTimeOfWeekMS: iTOW,
       speedKPH: speedKPH,
       headingDegrees: headingDegrees,
       latitude: latitude,

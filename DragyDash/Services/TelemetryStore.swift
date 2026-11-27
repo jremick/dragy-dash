@@ -1,37 +1,57 @@
 import Foundation
+import Observation
 
 @MainActor
-final class TelemetryStore: ObservableObject {
-  @Published var sourceMode: TelemetrySourceMode = .mock
-  @Published var telemetry: TelemetrySnapshot = .empty
-  @Published var displayTelemetry: TelemetrySnapshot = .empty
-  @Published var telemetryHistory: [TelemetrySnapshot] = []
-  @Published var displayTelemetryHistory: [TelemetrySnapshot] = []
-  @Published var runStats = TelemetryRunStats.empty
-  @Published var bluetoothStatus: BluetoothStatus = .unknown
-  @Published var diagnostics = BLEDiagnostics()
-  @Published var unitSystem: TelemetryUnitSystem = .metric
-  @Published var batteryPercent: Int?
-  @Published var connectedDeviceName: String?
-  @Published var connectedDeviceID: String?
-  @Published var sessionSavingEnabled = true
-  @Published var savedSessions: [SavedTelemetrySession] = []
-  @Published var liveActivityEnabled = true
+@Observable
+final class TelemetryStore {
+  var sourceMode: TelemetrySourceMode = .mock
+  var telemetry: TelemetrySnapshot = .empty
+  var displayTelemetry: TelemetrySnapshot = .empty
+  var runStats = TelemetryRunStats.empty
+  var bluetoothStatus: BluetoothStatus = .unknown
+  var diagnostics = BLEDiagnostics()
+  var unitSystem: TelemetryUnitSystem = .metric
+  var batteryPercent: Int?
+  var connectedDeviceName: String?
+  var connectedDeviceID: String?
+  var sessionSavingEnabled = true
+  var redactExportLocation = false
+  var savedSessions: [SavedTelemetrySession] = []
+  var liveActivityEnabled = true
+  var isTelemetryStale = false
+  var lastSaveError: String?
 
-  private let mockProvider = MockTelemetryProvider()
-  private let bluetoothService = DragyBluetoothService()
-  private let recorder = TelemetryRecorder()
-  private let savedSessionStore = SavedSessionStore()
-  private let liveSpeedActivityController = LiveSpeedActivityController()
-  private var displayFilter = TelemetryDisplayFilter()
-  private var motionEstimator = TelemetryMotionEstimator()
-  private let liveActivityDefaultsKey = "dragyDash.liveActivityEnabled"
+  var discoveredDragyDevices: [BLEDevice] {
+    diagnostics.devices.filter(\.isDragyCandidate)
+  }
+
+  @ObservationIgnored private let mockProvider = MockTelemetryProvider()
+  @ObservationIgnored private let bluetoothService = DragyBluetoothService()
+  @ObservationIgnored private let recorder = TelemetryRecorder()
+  @ObservationIgnored private let savedSessionStore = SavedSessionStore()
+  @ObservationIgnored private let liveSpeedActivityController = LiveSpeedActivityController()
+  @ObservationIgnored private var displayFilter = TelemetryDisplayFilter()
+  @ObservationIgnored private var motionEstimator = TelemetryMotionEstimator()
+  @ObservationIgnored private var lastTelemetryAt: Date?
+  @ObservationIgnored private var stalenessTask: Task<Void, Never>?
+
+  @ObservationIgnored private let unitSystemDefaultsKey = "dragyDash.unitSystem"
+  @ObservationIgnored private let liveActivityDefaultsKey = "dragyDash.liveActivityEnabled"
+  @ObservationIgnored private let redactLocationDefaultsKey = "dragyDash.redactExportLocation"
+  @ObservationIgnored private static let telemetryStaleInterval: TimeInterval = 4.0
 
   init() {
     sessionSavingEnabled = savedSessionStore.isSavingEnabled
     savedSessions = savedSessionStore.loadSessions()
+    if let storedUnits = UserDefaults.standard.string(forKey: unitSystemDefaultsKey),
+       let parsed = TelemetryUnitSystem(rawValue: storedUnits) {
+      unitSystem = parsed
+    }
     if UserDefaults.standard.object(forKey: liveActivityDefaultsKey) != nil {
       liveActivityEnabled = UserDefaults.standard.bool(forKey: liveActivityDefaultsKey)
+    }
+    if UserDefaults.standard.object(forKey: redactLocationDefaultsKey) != nil {
+      redactExportLocation = UserDefaults.standard.bool(forKey: redactLocationDefaultsKey)
     }
 
     bluetoothService.onStatusChanged = { [weak self] status in
@@ -51,12 +71,18 @@ final class TelemetryStore: ObservableObject {
       self?.connectedDeviceName = name
       self?.connectedDeviceID = id
     }
+    bluetoothService.onDisconnected = { [weak self] in
+      self?.handleBluetoothDisconnect()
+    }
+
     recorder.start()
     runStats = recorder.stats
+    startStalenessMonitor()
   }
 
   func setUnitSystem(_ unitSystem: TelemetryUnitSystem) {
     self.unitSystem = unitSystem
+    UserDefaults.standard.set(unitSystem.rawValue, forKey: unitSystemDefaultsKey)
     updateLiveActivity()
   }
 
@@ -66,10 +92,12 @@ final class TelemetryStore: ObservableObject {
 
     switch mode {
     case .mock:
-      bluetoothService.stopScan()
+      bluetoothService.disconnect()
+      batteryPercent = 84
       startMockTelemetry()
     case .bluetooth:
       mockProvider.stop()
+      batteryPercent = nil
       bluetoothService.startScan()
     }
   }
@@ -79,20 +107,25 @@ final class TelemetryStore: ObservableObject {
       return
     }
 
+    batteryPercent = batteryPercent ?? 84
     mockProvider.start { [weak self] telemetry in
       self?.handleTelemetry(telemetry)
     }
   }
 
-  func scanForDragy() {
+  func scanForDragy(includeAllDevices: Bool = false) {
     sourceMode = .bluetooth
     resetDisplayTelemetry()
     mockProvider.stop()
-    bluetoothService.startScan()
+    bluetoothService.startScan(includeAllDevices: includeAllDevices)
   }
 
   func stopScanning() {
     bluetoothService.stopScan()
+  }
+
+  func disconnectDragy() {
+    bluetoothService.disconnect()
   }
 
   func connect(to device: BLEDevice) {
@@ -102,36 +135,29 @@ final class TelemetryStore: ObservableObject {
     bluetoothService.connect(to: device)
   }
 
-  func writeDiagnosticHex(_ hex: String, targetID: String) {
-    bluetoothService.writeDiagnosticHex(hex, targetID: targetID)
-  }
-
-  func toggleRecording() {
-    if runStats.isRecording {
-      recorder.stop()
-    } else {
-      recorder.start()
-    }
-    runStats = recorder.stats
-  }
-
   func resetRecording() {
     saveCurrentSession()
     recorder.reset(startRecording: runStats.isRecording)
-    telemetryHistory = []
-    displayTelemetryHistory = []
     displayFilter.reset()
     motionEstimator.reset()
     runStats = recorder.stats
   }
 
-  func sessionCSV() -> String {
-    TelemetrySessionExporter.csv(samples: recorder.samples)
+  func sessionCSV(redactLocation: Bool? = nil) -> String {
+    TelemetrySessionExporter.csv(
+      samples: recorder.samples,
+      redactLocation: redactLocation ?? redactExportLocation
+    )
   }
 
   func setSessionSavingEnabled(_ enabled: Bool) {
     savedSessionStore.setSavingEnabled(enabled)
     sessionSavingEnabled = enabled
+  }
+
+  func setRedactExportLocation(_ enabled: Bool) {
+    UserDefaults.standard.set(enabled, forKey: redactLocationDefaultsKey)
+    redactExportLocation = enabled
   }
 
   func setLiveActivityEnabled(_ enabled: Bool) {
@@ -145,13 +171,15 @@ final class TelemetryStore: ObservableObject {
   }
 
   func saveCurrentSession() {
-    guard sessionSavingEnabled, !recorder.samples.isEmpty else {
+    guard sessionSavingEnabled, recorder.hasSamples else {
       return
     }
 
     do {
       savedSessions = try savedSessionStore.save(csv: sessionCSV())
+      lastSaveError = nil
     } catch {
+      lastSaveError = error.localizedDescription
       savedSessions = savedSessionStore.loadSessions()
     }
   }
@@ -159,18 +187,20 @@ final class TelemetryStore: ObservableObject {
   func clearSavedSessions() {
     do {
       try savedSessionStore.clear()
+      lastSaveError = nil
     } catch {
-      // Keep the visible state aligned with disk even if one file could not be removed.
+      lastSaveError = error.localizedDescription
     }
     savedSessions = savedSessionStore.loadSessions()
   }
 
-  func diagnosticReport() -> String {
+  func diagnosticReport(redacted: Bool = true) -> String {
     BLEDiagnosticReport.make(
       status: bluetoothStatus,
       diagnostics: diagnostics,
       telemetry: telemetry,
-      batteryPercent: batteryPercent
+      batteryPercent: batteryPercent,
+      redacted: redacted
     )
   }
 
@@ -180,24 +210,58 @@ final class TelemetryStore: ObservableObject {
 
     self.telemetry = enrichedTelemetry
     self.displayTelemetry = displayTelemetry
-    telemetryHistory.append(enrichedTelemetry)
-    telemetryHistory = Array(telemetryHistory.suffix(240))
-    displayTelemetryHistory.append(displayTelemetry)
-    displayTelemetryHistory = Array(displayTelemetryHistory.suffix(240))
+    lastTelemetryAt = Date()
+    isTelemetryStale = false
     recorder.record(raw: telemetry, statsSnapshot: displayTelemetry)
     runStats = recorder.stats
     updateLiveActivity()
   }
 
+  private func handleBluetoothDisconnect() {
+    batteryPercent = nil
+    resetDisplayTelemetry()
+    if liveActivityEnabled {
+      liveSpeedActivityController.end()
+    }
+  }
+
   private func resetDisplayTelemetry() {
     displayFilter.reset()
     motionEstimator.reset()
+    telemetry = .empty
     displayTelemetry = .empty
-    displayTelemetryHistory = []
+    lastTelemetryAt = nil
+    isTelemetryStale = false
+  }
+
+  private func startStalenessMonitor() {
+    stalenessTask?.cancel()
+    stalenessTask = Task { [weak self] in
+      while !Task.isCancelled {
+        try? await Task.sleep(for: .seconds(1))
+        guard let self, !Task.isCancelled else {
+          return
+        }
+
+        if let lastTelemetryAt = self.lastTelemetryAt,
+           Date().timeIntervalSince(lastTelemetryAt) > Self.telemetryStaleInterval {
+          if !self.isTelemetryStale {
+            self.isTelemetryStale = true
+            self.displayFilter.reset()
+            self.displayTelemetry.speedKPH = 0
+            self.updateLiveActivity()
+          }
+        }
+      }
+    }
   }
 
   private func updateLiveActivity() {
     guard liveActivityEnabled else {
+      return
+    }
+
+    guard lastTelemetryAt != nil else {
       return
     }
 
@@ -228,6 +292,7 @@ final class TelemetryStore: ObservableObject {
       sourceName: "Preview"
     )
     store.displayTelemetry = store.telemetry
+    store.lastTelemetryAt = now
     store.bluetoothStatus = .connected("Dragy Pro")
     store.batteryPercent = 84
     store.connectedDeviceName = "Dragy Pro"
@@ -241,25 +306,6 @@ final class TelemetryStore: ObservableObject {
         byteCount: 12_480
       )
     ]
-    store.telemetryHistory = (0..<60).map { index in
-      TelemetrySnapshot(
-        timestamp: now.addingTimeInterval(Double(index) * 0.2),
-        speedKPH: Double(index) * 2.0,
-        headingDegrees: 186,
-        latitude: -37.8136,
-        longitude: 144.9631,
-        altitudeMeters: 51,
-        horizontalAccuracyMeters: 0.9,
-        satelliteCount: 18,
-        fixQuality: .threeD,
-        longitudinalG: 0.12,
-        lateralG: -0.04,
-        verticalG: 1.01,
-        yawRateDegreesPerSecond: 1.4,
-        sourceName: "Preview"
-      )
-    }
-    store.displayTelemetryHistory = store.telemetryHistory
     store.runStats = TelemetryRunStats(
       isRecording: true,
       startedAt: now.addingTimeInterval(-12),
@@ -274,11 +320,11 @@ final class TelemetryStore: ObservableObject {
       maxLongitudinalG: 0.22,
       maxLateralG: -0.08,
       averageSpeedLast1KMKPH: 91,
-      averageSpeedLast5KMKPH: nil,
-      averageSpeedLast10KMKPH: nil,
-      averageSpeedLast1MileKPH: nil,
-      averageSpeedLast3MilesKPH: nil,
-      averageSpeedLast5MilesKPH: nil
+      averageSpeedLast5KMKPH: 88,
+      averageSpeedLast10KMKPH: 85,
+      averageSpeedLast1MileKPH: 90,
+      averageSpeedLast3MilesKPH: 88,
+      averageSpeedLast5MilesKPH: 85
     )
     return store
   }

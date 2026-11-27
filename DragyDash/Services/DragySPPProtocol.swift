@@ -1,6 +1,6 @@
 import Foundation
 
-enum DragySPPFeature: CaseIterable, Equatable {
+enum DragySPPFeature: CaseIterable, Equatable, Sendable {
   case currentSpeed
   case maxSpeed
   case recordState
@@ -42,7 +42,7 @@ enum DragySPPFeature: CaseIterable, Equatable {
   }
 }
 
-struct DragySPPReadResult: Equatable {
+struct DragySPPReadResult: Equatable, Sendable {
   let feature: DragySPPFeature
   let value: Data
 
@@ -131,14 +131,22 @@ enum DragySPPProtocol {
         continue
       }
 
-      let valueEnd = featureIndex
+      // Skip trailing command/separator markers immediately preceding the feature address
+      // without stripping valid numeric bytes inside the value itself.
+      var valueEnd = featureIndex
+      if valueEnd > 0, bytes[valueEnd - 1] == readCommand {
+        valueEnd -= 1
+      }
+      if valueEnd > 0, bytes[valueEnd - 1] == frameCRC {
+        valueEnd -= 1
+      }
+
       let valueStart = max(0, valueEnd - 8)
-      let value = bytes[valueStart..<valueEnd].filter { $0 != readCommand && $0 != frameCRC }
-      guard !value.isEmpty else {
+      guard valueStart < valueEnd else {
         continue
       }
 
-      return DragySPPReadResult(feature: feature, value: Data(value))
+      return DragySPPReadResult(feature: feature, value: Data(bytes[valueStart..<valueEnd]))
     }
 
     return nil

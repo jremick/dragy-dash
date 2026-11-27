@@ -47,6 +47,15 @@ struct SavedSessionStoreTests {
     #expect(!secondStore.isSavingEnabled)
   }
 
+  @Test func excludesSessionsDirectoryFromBackup() throws {
+    let directoryURL = temporaryDirectory()
+    let store = SavedSessionStore(directoryURL: directoryURL)
+
+    _ = try store.save(csv: "timestamp,speed_kph\n1,80")
+    let resourceValues = try directoryURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+    #expect(resourceValues.isExcludedFromBackup == true)
+  }
+
   private func temporaryDirectory() -> URL {
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent("DragyDashTests-\(UUID().uuidString)", isDirectory: true)

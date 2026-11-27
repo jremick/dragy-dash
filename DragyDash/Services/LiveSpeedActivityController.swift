@@ -5,12 +5,15 @@ import Foundation
 final class LiveSpeedActivityController {
   private var activity: Activity<LiveSpeedActivityAttributes>?
   private var lastUpdate: Date?
+  private var pendingTask: Task<Void, Never>?
+  private var isStopped = false
 
   func update(
     telemetry: TelemetrySnapshot,
     unitSystem: TelemetryUnitSystem,
     batteryPercent: Int?
   ) {
+    isStopped = false
     guard ActivityAuthorizationInfo().areActivitiesEnabled else {
       return
     }
@@ -29,12 +32,17 @@ final class LiveSpeedActivityController {
     }
     lastUpdate = now
 
-    Task {
-      if let activity = currentActivity() {
+    pendingTask?.cancel()
+    pendingTask = Task { [weak self] in
+      guard let self, !Task.isCancelled, !self.isStopped else {
+        return
+      }
+
+      if let activity = self.currentActivity() {
         await activity.update(ActivityContent(state: state, staleDate: now.addingTimeInterval(8)))
       } else {
         do {
-          activity = try Activity<LiveSpeedActivityAttributes>.request(
+          self.activity = try Activity<LiveSpeedActivityAttributes>.request(
             attributes: LiveSpeedActivityAttributes(displayName: "DragyDash"),
             content: ActivityContent(state: state, staleDate: now.addingTimeInterval(8)),
             pushType: nil
@@ -47,12 +55,14 @@ final class LiveSpeedActivityController {
   }
 
   func end() {
-    Task {
+    isStopped = true
+    pendingTask?.cancel()
+    pendingTask = Task { [weak self] in
       for activity in Activity<LiveSpeedActivityAttributes>.activities {
         await activity.end(nil, dismissalPolicy: .immediate)
       }
-      activity = nil
-      lastUpdate = nil
+      self?.activity = nil
+      self?.lastUpdate = nil
     }
   }
 

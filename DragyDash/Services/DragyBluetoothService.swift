@@ -1,29 +1,41 @@
 @preconcurrency import CoreBluetooth
 import Foundation
+import OSLog
 
 @MainActor
 final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDelegate, @preconcurrency CBPeripheralDelegate {
   var onStatusChanged: (BluetoothStatus) -> Void = { _ in }
   var onDiagnosticsChanged: (BLEDiagnostics) -> Void = { _ in }
   var onTelemetry: (TelemetrySnapshot) -> Void = { _ in }
-  var onBatteryLevelChanged: (Int) -> Void = { _ in }
+  var onBatteryLevelChanged: (Int?) -> Void = { _ in }
   var onConnectedDeviceChanged: (String?, String?) -> Void = { _, _ in }
+  var onDisconnected: () -> Void = { }
+
+  private static let dragyServiceUUID = CBUUID(string: "FD00")
+  private static let deviceInfoServiceUUID = CBUUID(string: "180A")
+  private static let lastPeripheralIDKey = "dragyDash.lastPeripheralID"
+  private static let logger = Logger(subsystem: "com.dragydash.ble", category: "bluetooth")
 
   private var centralManager: CBCentralManager?
   private var peripherals: [UUID: CBPeripheral] = [:]
-  private var deviceOrder: [UUID] = []
   private var diagnostics = BLEDiagnostics()
   private let decoder = DragyPacketDecoder()
   private var shouldScanWhenPoweredOn = false
+  private var scanAllDevices = false
+  private var autoReconnectEnabled = true
   private var loggedAdvertisements: [UUID: Date] = [:]
   private var loggedCharacteristics = Set<String>()
   private var hasAutoConnectedToCandidate = false
   private weak var connectedPeripheral: CBPeripheral?
-  private var writableCharacteristics: [String: CBCharacteristic] = [:]
+  private var handshakeCharacteristic: CBCharacteristic?
+  private var isTelemetryNotifying = false
+  private var hasRequestedHandshakeRead = false
+  private var hasRespondedToShake = false
   private var sppCharacteristic: CBCharacteristic?
   private var sppPollTimer: Timer?
   private var hasStartedSPPPolling = false
-  private var hasRespondedToShake = false
+  private var reconnectTask: Task<Void, Never>?
+  private var lastPacketDiagnosticsEmit: Date = .distantPast
   private var packetReassembler = DragyPacketReassembler()
 
   override init() {
@@ -31,18 +43,33 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
     centralManager = CBCentralManager(delegate: self, queue: .main)
   }
 
-  func startScan() {
+  func startScan(includeAllDevices: Bool = false) {
     guard let centralManager else {
       return
     }
 
+    reconnectTask?.cancel()
+    reconnectTask = nil
+    scanAllDevices = includeAllDevices
+    autoReconnectEnabled = true
+    hasAutoConnectedToCandidate = false
+
     switch centralManager.state {
     case .poweredOn:
+      // Clear stale peripheral entries from earlier scans so the cache stays bounded.
+      if connectedPeripheral == nil {
+        peripherals.removeAll()
+        loggedAdvertisements.removeAll()
+        diagnostics.devices.removeAll()
+        emitDiagnostics()
+      }
+
       onStatusChanged(.scanning)
-      log("STATUS scanning")
+      log("STATUS scanning targeted=\(!includeAllDevices)")
+      let services: [CBUUID]? = includeAllDevices ? nil : [Self.dragyServiceUUID]
       centralManager.scanForPeripherals(
-        withServices: nil,
-        options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+        withServices: services,
+        options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
       )
     case .unknown, .resetting:
       shouldScanWhenPoweredOn = true
@@ -65,8 +92,26 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
 
   func stopScan() {
     shouldScanWhenPoweredOn = false
+    autoReconnectEnabled = false
+    reconnectTask?.cancel()
+    reconnectTask = nil
     centralManager?.stopScan()
-    if centralManager?.state == .poweredOn {
+    if connectedPeripheral == nil, centralManager?.state == .poweredOn {
+      onStatusChanged(.poweredOn)
+    }
+  }
+
+  func disconnect() {
+    shouldScanWhenPoweredOn = false
+    autoReconnectEnabled = false
+    hasAutoConnectedToCandidate = false
+    reconnectTask?.cancel()
+    reconnectTask = nil
+    centralManager?.stopScan()
+
+    if let peripheral = connectedPeripheral {
+      centralManager?.cancelPeripheralConnection(peripheral)
+    } else if centralManager?.state == .poweredOn {
       onStatusChanged(.poweredOn)
     }
   }
@@ -77,38 +122,14 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       return
     }
 
+    reconnectTask?.cancel()
+    reconnectTask = nil
+    autoReconnectEnabled = true
+    hasAutoConnectedToCandidate = true
     centralManager?.stopScan()
     onStatusChanged(.connecting(device.name))
     peripheral.delegate = self
     centralManager?.connect(peripheral)
-  }
-
-  func writeDiagnosticHex(_ hex: String, targetID: String) {
-    let normalizedHex = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !normalizedHex.isEmpty else {
-      log("WRITE_SKIPPED empty_payload target=\(targetID)")
-      return
-    }
-
-    guard let data = Data(hexEncoded: normalizedHex) else {
-      log("WRITE_FAILED target=\(targetID) reason=invalid_hex payload=\(normalizedHex)")
-      return
-    }
-
-    guard let peripheral = connectedPeripheral else {
-      log("WRITE_FAILED target=\(targetID) reason=no_connected_peripheral")
-      return
-    }
-
-    guard let characteristic = writableCharacteristics[targetID] else {
-      log("WRITE_FAILED target=\(targetID) reason=target_not_available")
-      return
-    }
-
-    let writeType: CBCharacteristicWriteType = characteristic.properties.contains(.write) ? .withResponse : .withoutResponse
-    let serviceUUID = characteristic.service?.uuid.uuidString ?? "unknown"
-    log("WRITE target=\(targetID) service=\(serviceUUID) characteristic=\(characteristic.uuid.uuidString) type=\(writeType.label) bytes=\(data.count) hex=\(data.hexString)")
-    peripheral.writeValue(data, for: characteristic, type: writeType)
   }
 
   func centralManagerDidUpdateState(_ central: CBCentralManager) {
@@ -116,7 +137,8 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
     case .poweredOn:
       onStatusChanged(.poweredOn)
       if shouldScanWhenPoweredOn {
-        startScan()
+        shouldScanWhenPoweredOn = false
+        startScan(includeAllDevices: scanAllDevices)
       }
     case .resetting:
       onStatusChanged(.resetting)
@@ -153,10 +175,11 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       advertisedServiceUUIDs: advertisedServiceUUIDs
     )
 
-    peripherals[id] = peripheral
-    if !deviceOrder.contains(id) {
-      deviceOrder.append(id)
+    if !candidate && !scanAllDevices {
+      return
     }
+
+    peripherals[id] = peripheral
 
     let device = BLEDevice(
       id: id,
@@ -177,6 +200,9 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       }
       return $0.rssi > $1.rssi
     }
+    if diagnostics.devices.count > 32 {
+      diagnostics.devices = Array(diagnostics.devices.prefix(32))
+    }
     emitDiagnostics()
 
     logAdvertisement(
@@ -184,7 +210,9 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       serviceData: serviceData.mapValues(\.hexString)
     )
 
-    if candidate, !hasAutoConnectedToCandidate {
+    let preferredID = UserDefaults.standard.string(forKey: Self.lastPeripheralIDKey)
+    let isPreferred = preferredID == nil || preferredID == device.id.uuidString
+    if candidate, connectedPeripheral == nil, !hasAutoConnectedToCandidate, isPreferred || diagnostics.devices.count == 1 {
       hasAutoConnectedToCandidate = true
       log("AUTOCONNECT \(device.name) id=\(device.id.uuidString)")
       connect(to: device)
@@ -194,26 +222,25 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
   func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
     let name = peripheral.name ?? "Dragy"
     connectedPeripheral = peripheral
-    writableCharacteristics.removeAll()
-    sppCharacteristic = nil
-    stopSPPPolling()
-    hasStartedSPPPolling = false
-    hasRespondedToShake = false
-    packetReassembler.reset()
+    UserDefaults.standard.set(peripheral.identifier.uuidString, forKey: Self.lastPeripheralIDKey)
+    resetConnectionState()
     diagnostics.characteristics = []
     diagnostics.descriptors = []
     diagnostics.writeTargets = []
     diagnostics.packetSamples = []
+    emitDiagnostics()
     onStatusChanged(.connected(name))
     onConnectedDeviceChanged(name, peripheral.identifier.uuidString)
     log("CONNECTED \(name) id=\(peripheral.identifier.uuidString)")
     peripheral.delegate = self
-    peripheral.discoverServices(nil)
+    peripheral.discoverServices([Self.dragyServiceUUID, Self.deviceInfoServiceUUID])
   }
 
   func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
+    hasAutoConnectedToCandidate = false
     onStatusChanged(.failed(error?.localizedDescription ?? "Failed to connect"))
     log("CONNECT_FAILED id=\(peripheral.identifier.uuidString) error=\(error?.localizedDescription ?? "unknown")")
+    scheduleReconnectIfEnabled()
   }
 
   func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {
@@ -224,14 +251,15 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       onStatusChanged(.poweredOn)
       log("DISCONNECTED id=\(peripheral.identifier.uuidString)")
     }
+
     connectedPeripheral = nil
+    hasAutoConnectedToCandidate = false
+    resetConnectionState()
     onConnectedDeviceChanged(nil, nil)
-    writableCharacteristics.removeAll()
-    sppCharacteristic = nil
-    stopSPPPolling()
-    hasStartedSPPPolling = false
-    hasRespondedToShake = false
-    packetReassembler.reset()
+    onBatteryLevelChanged(nil)
+    onDisconnected()
+
+    scheduleReconnectIfEnabled()
   }
 
   func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
@@ -243,7 +271,10 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
 
     for service in services {
       log("SERVICE uuid=\(service.uuid.uuidString)")
-      peripheral.discoverCharacteristics(nil, for: service)
+      let uuid = service.uuid.uuidString.uppercased()
+      if uuid == "FD00" || uuid == "180A" {
+        peripheral.discoverCharacteristics(nil, for: service)
+      }
     }
   }
 
@@ -254,7 +285,10 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       return
     }
 
+    let serviceUUID = service.uuid.uuidString.uppercased()
+
     for characteristic in characteristics {
+      let charUUID = characteristic.uuid.uuidString.uppercased()
       let info = BLECharacteristicInfo(
         serviceUUID: service.uuid.uuidString,
         characteristicUUID: characteristic.uuid.uuidString,
@@ -264,63 +298,60 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       diagnostics.characteristics.append(info)
       logCharacteristic(info)
 
-      if DragySPPProtocol.isSPPCharacteristic(uuid: characteristic.uuid.uuidString) {
+      if DragySPPProtocol.isSPPCharacteristic(uuid: charUUID) {
         sppCharacteristic = characteristic
         log("SPP_TARGET characteristic=\(characteristic.uuid.uuidString) service=\(service.uuid.uuidString)")
+        if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
+          peripheral.setNotifyValue(true, for: characteristic)
+        }
+        continue
       }
 
-      if characteristic.properties.contains(.write) || characteristic.properties.contains(.writeWithoutResponse) {
-        writableCharacteristics[info.id] = characteristic
-        diagnostics.writeTargets.removeAll { $0.id == info.id }
-        diagnostics.writeTargets.append(BLEWriteTarget(
-          serviceUUID: service.uuid.uuidString,
-          characteristicUUID: characteristic.uuid.uuidString,
-          label: nil,
-          properties: info.properties
-        ))
-      }
-
-      if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
-        log("SUBSCRIBE characteristic=\(characteristic.uuid.uuidString) service=\(service.uuid.uuidString)")
-        peripheral.setNotifyValue(true, for: characteristic)
-      }
-
-      log("DISCOVER_DESCRIPTORS characteristic=\(characteristic.uuid.uuidString) service=\(service.uuid.uuidString)")
-      peripheral.discoverDescriptors(for: characteristic)
-
-      if characteristic.properties.contains(.read) {
-        log("READ characteristic=\(characteristic.uuid.uuidString) service=\(service.uuid.uuidString)")
-        peripheral.readValue(for: characteristic)
+      if serviceUUID == "FD00" {
+        // Interact strictly with observed telemetry/handshake/status characteristics.
+        // Avoid probing MCU update (FD05) or factory test (FD11) characteristics.
+        switch charUUID {
+        case "FD02":
+          if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
+            log("SUBSCRIBE characteristic=\(characteristic.uuid.uuidString) service=\(service.uuid.uuidString)")
+            peripheral.setNotifyValue(true, for: characteristic)
+          }
+        case "FD03":
+          handshakeCharacteristic = characteristic
+          beginHandshakeIfReady(peripheral: peripheral)
+        case "FD04":
+          if characteristic.properties.contains(.notify) || characteristic.properties.contains(.indicate) {
+            log("SUBSCRIBE characteristic=\(characteristic.uuid.uuidString) service=\(service.uuid.uuidString)")
+            peripheral.setNotifyValue(true, for: characteristic)
+          }
+          if characteristic.properties.contains(.read) {
+            log("READ characteristic=\(characteristic.uuid.uuidString) service=\(service.uuid.uuidString)")
+            peripheral.readValue(for: characteristic)
+          }
+        default:
+          break
+        }
       }
     }
 
     diagnostics.characteristics.sort { $0.id < $1.id }
-    diagnostics.writeTargets.sort { $0.id < $1.id }
     emitDiagnostics()
   }
 
   func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
     let serviceUUID = characteristic.service?.uuid.uuidString ?? "unknown"
+    let charUUID = characteristic.uuid.uuidString.uppercased()
     if let error {
       log("NOTIFY_STATE_FAILED characteristic=\(characteristic.uuid.uuidString) service=\(serviceUUID) error=\(error.localizedDescription)")
     } else {
       log("NOTIFY_STATE characteristic=\(characteristic.uuid.uuidString) service=\(serviceUUID) enabled=\(characteristic.isNotifying)")
-      if characteristic.isNotifying, DragySPPProtocol.isSPPCharacteristic(uuid: characteristic.uuid.uuidString) {
+      if characteristic.isNotifying && charUUID == "FD02" {
+        isTelemetryNotifying = true
+        beginHandshakeIfReady(peripheral: peripheral)
+      }
+      if characteristic.isNotifying, DragySPPProtocol.isSPPCharacteristic(uuid: charUUID) {
         startSPPPollingIfNeeded()
       }
-    }
-  }
-
-  func peripheral(_ peripheral: CBPeripheral, didDiscoverDescriptorsFor characteristic: CBCharacteristic, error: Error?) {
-    let serviceUUID = characteristic.service?.uuid.uuidString ?? "unknown"
-    guard error == nil, let descriptors = characteristic.descriptors else {
-      log("DESCRIPTOR_DISCOVERY_FAILED characteristic=\(characteristic.uuid.uuidString) service=\(serviceUUID) error=\(error?.localizedDescription ?? "unknown")")
-      return
-    }
-
-    for descriptor in descriptors {
-      log("DESCRIPTOR service=\(serviceUUID) characteristic=\(characteristic.uuid.uuidString) descriptor=\(descriptor.uuid.uuidString)")
-      peripheral.readValue(for: descriptor)
     }
   }
 
@@ -329,18 +360,35 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       return
     }
 
-    let sample = BLEPacketSample(
-      timestamp: .now,
-      characteristicUUID: characteristic.uuid.uuidString,
-      hex: data.hexString,
-      asciiPreview: data.asciiPreview
-    )
-    if sample.characteristicUUID.uppercased() != "FD02" {
+    let charUUID = characteristic.uuid.uuidString
+    let isTelemetryFragment = charUUID.uppercased() == "FD02"
+
+    if !isTelemetryFragment {
+      let sample = BLEPacketSample(
+        timestamp: .now,
+        characteristicUUID: charUUID,
+        hex: data.hexString,
+        asciiPreview: data.asciiPreview
+      )
       log("PACKET characteristic=\(sample.characteristicUUID) bytes=\(data.count) hex=\(sample.hex) ascii=\(sample.asciiPreview ?? "")")
+      diagnostics.packetSamples.insert(sample, at: 0)
+      diagnostics.packetSamples = Array(diagnostics.packetSamples.prefix(24))
+      emitDiagnostics()
+    } else {
+      // Avoid allocating hex strings or invalidating SwiftUI views on every raw FD02 fragment.
+      let now = Date()
+      if now.timeIntervalSince(lastPacketDiagnosticsEmit) >= 1.0 {
+        lastPacketDiagnosticsEmit = now
+        let sample = BLEPacketSample(
+          timestamp: now,
+          characteristicUUID: charUUID,
+          hex: data.hexString,
+          asciiPreview: nil
+        )
+        diagnostics.packetSamples.insert(sample, at: 0)
+        diagnostics.packetSamples = Array(diagnostics.packetSamples.prefix(24))
+      }
     }
-    diagnostics.packetSamples.insert(sample, at: 0)
-    diagnostics.packetSamples = Array(diagnostics.packetSamples.prefix(24))
-    emitDiagnostics()
 
     respondToShakeChallengeIfNeeded(data, characteristic: characteristic, peripheral: peripheral)
     parseDeviceStatusIfNeeded(data, characteristic: characteristic)
@@ -351,46 +399,16 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       log("SPP_READ_RESULT feature=\(sppResult.feature.displayName) raw=\(rawValue) speed_kph=\(speed)")
     }
 
-    let packets = packetReassembler.packets(from: data, characteristicUUID: characteristic.uuid.uuidString)
+    let packets = packetReassembler.packets(from: data, characteristicUUID: charUUID)
     for packet in packets {
-      if packet != data {
-        log("REASSEMBLED characteristic=\(characteristic.uuid.uuidString) bytes=\(packet.count) hex_prefix=\(packet.prefix(16).hexString)")
-      }
-
       if let snapshot = decoder.decode(
         packet,
-        characteristicUUID: characteristic.uuid.uuidString,
+        characteristicUUID: charUUID,
         sourceName: peripheral.name ?? "Dragy Pro"
       ) {
-        log("TELEMETRY speed_kph=\(String(format: "%.3f", snapshot.speedKPH)) fix=\(snapshot.fixQuality.rawValue)")
         onTelemetry(snapshot)
       }
     }
-  }
-
-  func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor descriptor: CBDescriptor, error: Error?) {
-    let characteristic = descriptor.characteristic
-    let characteristicUUID = characteristic?.uuid.uuidString ?? "unknown"
-    let serviceUUID = characteristic?.service?.uuid.uuidString ?? "unknown"
-
-    guard error == nil else {
-      log("DESCRIPTOR_VALUE_FAILED descriptor=\(descriptor.uuid.uuidString) characteristic=\(characteristicUUID) service=\(serviceUUID) error=\(error?.localizedDescription ?? "unknown")")
-      return
-    }
-
-    let info = BLEDescriptorInfo(
-      serviceUUID: serviceUUID,
-      characteristicUUID: characteristicUUID,
-      descriptorUUID: descriptor.uuid.uuidString,
-      valueDescription: descriptorValueDescription(descriptor.value)
-    )
-    diagnostics.descriptors.removeAll { $0.id == info.id }
-    diagnostics.descriptors.append(info)
-    diagnostics.descriptors.sort { $0.id < $1.id }
-    applyDescriptorLabel(info, descriptor: descriptor)
-    emitDiagnostics()
-
-    log("DESCRIPTOR_VALUE service=\(serviceUUID) characteristic=\(characteristicUUID) descriptor=\(descriptor.uuid.uuidString) value=\(info.valueDescription ?? "")")
   }
 
   func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
@@ -399,6 +417,46 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       log("WRITE_ACK_FAILED service=\(serviceUUID) characteristic=\(characteristic.uuid.uuidString) error=\(error.localizedDescription)")
     } else {
       log("WRITE_ACK service=\(serviceUUID) characteristic=\(characteristic.uuid.uuidString)")
+    }
+  }
+
+  private func resetConnectionState() {
+    handshakeCharacteristic = nil
+    isTelemetryNotifying = false
+    hasRequestedHandshakeRead = false
+    hasRespondedToShake = false
+    sppCharacteristic = nil
+    stopSPPPolling()
+    hasStartedSPPPolling = false
+    loggedCharacteristics.removeAll()
+    packetReassembler.reset()
+  }
+
+  private func beginHandshakeIfReady(peripheral: CBPeripheral) {
+    guard isTelemetryNotifying,
+          !hasRequestedHandshakeRead,
+          let fd03 = handshakeCharacteristic,
+          fd03.properties.contains(.read) else {
+      return
+    }
+
+    hasRequestedHandshakeRead = true
+    log("READ characteristic=\(fd03.uuid.uuidString) service=FD00")
+    peripheral.readValue(for: fd03)
+  }
+
+  private func scheduleReconnectIfEnabled() {
+    guard autoReconnectEnabled else {
+      return
+    }
+
+    reconnectTask?.cancel()
+    reconnectTask = Task { [weak self] in
+      try? await Task.sleep(for: .seconds(2))
+      guard let self, !Task.isCancelled, self.autoReconnectEnabled, self.connectedPeripheral == nil else {
+        return
+      }
+      self.startScan(includeAllDevices: self.scanAllDevices)
     }
   }
 
@@ -413,7 +471,7 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       return true
     }
 
-    if advertisedServiceUUIDs.contains("FD00") {
+    if advertisedServiceUUIDs.contains(where: { $0.uppercased() == "FD00" }) {
       return true
     }
 
@@ -428,31 +486,17 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
     onDiagnosticsChanged(diagnostics)
   }
 
-  private func applyDescriptorLabel(_ info: BLEDescriptorInfo, descriptor: CBDescriptor) {
-    guard descriptor.uuid == CBUUID(string: "2901"), let label = info.valueDescription else {
-      return
-    }
-
-    let targetID = "\(info.serviceUUID).\(info.characteristicUUID)"
-    guard let index = diagnostics.writeTargets.firstIndex(where: { $0.id == targetID }) else {
-      return
-    }
-
-    diagnostics.writeTargets[index].label = label
-    diagnostics.writeTargets.sort { $0.id < $1.id }
-  }
-
   private func parseDeviceStatusIfNeeded(_ data: Data, characteristic: CBCharacteristic) {
     guard characteristic.uuid.uuidString.uppercased() == "FD04" else {
       return
     }
 
     guard let batteryPercent = DragyDeviceStatusDecoder.batteryPercent(from: data) else {
-      log("DEVICE_STATUS battery=unknown bytes=\(data.count) hex=\(data.hexString)")
+      log("DEVICE_STATUS battery=unknown bytes=\(data.count)")
       return
     }
 
-    log("DEVICE_STATUS battery_percent=\(batteryPercent) hex=\(data.hexString)")
+    log("DEVICE_STATUS battery_percent=\(batteryPercent)")
     onBatteryLevelChanged(batteryPercent)
   }
 
@@ -474,7 +518,7 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
     let response = Data([bytes[0], bytes[1], bytes[0] ^ bytes[1], bytes[0] & bytes[1]])
     let writeType: CBCharacteristicWriteType = characteristic.properties.contains(.write) ? .withResponse : .withoutResponse
     hasRespondedToShake = true
-    log("SHAKE_RESPONSE challenge=\(data.hexString) response=\(response.hexString) type=\(writeType.label)")
+    log("SHAKE_RESPONSE bytes=\(response.count) type=\(writeType.label)")
     peripheral.writeValue(response, for: characteristic, type: writeType)
   }
 
@@ -504,7 +548,7 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
     let data = DragySPPProtocol.readFrame(for: feature)
     let writeType: CBCharacteristicWriteType = characteristic.properties.contains(.write) ? .withResponse : .withoutResponse
     let serviceUUID = characteristic.service?.uuid.uuidString ?? "unknown"
-    log("SPP_READ feature=\(feature.displayName) service=\(serviceUUID) characteristic=\(characteristic.uuid.uuidString) type=\(writeType.label) hex=\(data.hexString)")
+    log("SPP_READ feature=\(feature.displayName) service=\(serviceUUID) characteristic=\(characteristic.uuid.uuidString) type=\(writeType.label)")
     peripheral.writeValue(data, for: characteristic, type: writeType)
   }
 
@@ -526,7 +570,7 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       .sorted()
       .joined(separator: "|")
     log(
-      "ADVERTISEMENT name=\(device.name) id=\(device.id.uuidString) rssi=\(device.rssi) candidate=\(device.isDragyCandidate) localName=\(device.localName ?? "") manufacturer=\(device.manufacturerDataHex ?? "") services=\(services) serviceData=\(serviceDataText)"
+      "ADVERTISEMENT name=\(device.name) id=\(device.id.uuidString) rssi=\(device.rssi) candidate=\(device.isDragyCandidate) services=\(services) serviceData=\(serviceDataText)"
     )
   }
 
@@ -542,70 +586,10 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
   }
 
   private func log(_ message: String) {
-    print("DRAGYDASH_BLE \(message)")
+    Self.logger.debug("\(message, privacy: .private)")
     diagnostics.events.insert(BLELogEvent(timestamp: .now, message: message), at: 0)
     diagnostics.events = Array(diagnostics.events.prefix(80))
     emitDiagnostics()
-  }
-}
-
-private func descriptorValueDescription(_ value: Any?) -> String? {
-  guard let value else {
-    return nil
-  }
-
-  if let data = value as? Data {
-    let ascii = data.asciiPreview.map { " ascii=\($0)" } ?? ""
-    return "hex=\(data.hexString)\(ascii)"
-  }
-
-  if let string = value as? String {
-    return string
-  }
-
-  if let number = value as? NSNumber {
-    return number.stringValue
-  }
-
-  if let uuid = value as? CBUUID {
-    return uuid.uuidString
-  }
-
-  if let uuids = value as? [CBUUID] {
-    return uuids.map(\.uuidString).joined(separator: ", ")
-  }
-
-  return String(describing: value)
-}
-
-private extension Data {
-  init?(hexEncoded string: String) {
-    let allowedSeparators = CharacterSet(charactersIn: " ,:-_\n\r\t")
-    let compact = string.unicodeScalars.filter { !allowedSeparators.contains($0) }
-    guard compact.count.isMultiple(of: 2) else {
-      return nil
-    }
-
-    var bytes: [UInt8] = []
-    bytes.reserveCapacity(compact.count / 2)
-
-    var index = compact.startIndex
-    while index < compact.endIndex {
-      let nextIndex = compact.index(after: index)
-      guard nextIndex < compact.endIndex else {
-        return nil
-      }
-
-      let byteString = String(String.UnicodeScalarView([compact[index], compact[nextIndex]]))
-      guard let byte = UInt8(byteString, radix: 16) else {
-        return nil
-      }
-
-      bytes.append(byte)
-      index = compact.index(after: nextIndex)
-    }
-
-    self.init(bytes)
   }
 }
 
