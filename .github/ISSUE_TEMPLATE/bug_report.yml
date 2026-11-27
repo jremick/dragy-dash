@@ -1,0 +1,35 @@
+name: Bug Report
+description: Report a bug in DragyDash (using redacted logs only)
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug! Please **never** post raw GPS coordinates, exported route CSVs, full `DRG70-xxxxxx` serial suffixes, phone UDIDs, or Apple Team IDs.
+  - type: input
+    id: environment
+    attributes:
+      label: Device, iOS, & Dragy Hardware
+      placeholder: "e.g., iPhone 16 Pro, iOS 18.4, Dragy Pro (DRG70-******)"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the issue and steps to reproduce.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted Diagnostic Log (optional)
+      description: Paste output from Settings -> Dragy -> Copy Log (redacted by default).
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy Check
+      options:
+        - label: I have confirmed this report contains no personal coordinates, route CSVs, full Dragy serial suffixes, or Apple signing details.
+          required: true
