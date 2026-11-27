@@ -1,6 +1,6 @@
 import Foundation
 
-struct TelemetryMotionEstimator {
+struct TelemetryMotionEstimator: Sendable {
   private let movementThresholdKPH = 5.0
   private let standardGravity = 9.80665
   private var previous: TelemetrySnapshot?
@@ -8,15 +8,20 @@ struct TelemetryMotionEstimator {
   mutating func apply(to snapshot: TelemetrySnapshot) -> TelemetrySnapshot {
     var enriched = snapshot
 
+    guard snapshot.isUsableFix else {
+      previous = nil
+      return enriched
+    }
+
     defer {
       previous = snapshot
     }
 
-    guard let previous else {
+    guard let previous, previous.isUsableFix else {
       return enriched
     }
 
-    let elapsed = snapshot.timestamp.timeIntervalSince(previous.timestamp)
+    let elapsed = Self.elapsedSeconds(from: previous, to: snapshot)
     guard elapsed > 0.05, elapsed <= 2 else {
       return enriched
     }
@@ -47,6 +52,25 @@ struct TelemetryMotionEstimator {
 
   mutating func reset() {
     previous = nil
+  }
+
+  static func elapsedSeconds(from previous: TelemetrySnapshot, to current: TelemetrySnapshot) -> TimeInterval {
+    if let prevTOW = previous.gpsTimeOfWeekMS, let currTOW = current.gpsTimeOfWeekMS, currTOW != prevTOW {
+      let weekMS: UInt32 = 604_800_000
+      let deltaMS: UInt32
+      if currTOW >= prevTOW {
+        deltaMS = currTOW - prevTOW
+      } else {
+        deltaMS = (weekMS &- prevTOW) &+ currTOW
+      }
+
+      let seconds = Double(deltaMS) / 1000.0
+      if seconds > 0, seconds < 10 {
+        return seconds
+      }
+    }
+
+    return current.timestamp.timeIntervalSince(previous.timestamp)
   }
 
   private func normalizedHeadingDelta(from previous: Double, to current: Double) -> Double {

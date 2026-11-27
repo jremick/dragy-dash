@@ -63,15 +63,16 @@ The live stream on this device uses UBX NAV-PVT packets over `FD02`.
 
 Decoded NAV-PVT fields used by DragyDash:
 
+- `iTOW` GPS millisecond time-of-week (used for jitter-free motion & distance deltas when advancing cleanly)
 - fix type -> no fix / 2D / 3D / estimated
-- satellite count
+- satellite count (samples with zero satellites are treated as unusable)
 - latitude / longitude
-- altitude
-- horizontal accuracy
+- altitude (`hMSL`)
+- horizontal accuracy (`hAcc`)
 - ground speed (`gSpeed`, mm/s -> km/h)
-- heading of motion
+- heading of motion (`headMot`)
 
-When fix quality is no-fix, DragyDash displays speed as 0 and does not feed that packet into distance or rolling averages.
+When fix quality is unusable (no-fix or zero satellites), DragyDash displays speed as 0 and does not feed that packet into distance, acceleration timing, or rolling averages.
 
 ## Battery / Device Status
 
@@ -89,7 +90,7 @@ This Dragy Pro stream exposed GNSS-derived motion, not a complete raw IMU packet
 
 Current derived values:
 
-- Longitudinal G is estimated from speed delta over elapsed time.
+- Longitudinal G is estimated from speed delta over elapsed `iTOW` (or arrival) time.
 - Lateral G is estimated from speed and heading-rate change.
 - Yaw rate can be derived internally from heading-rate change, but the app no longer displays yaw.
 
@@ -103,7 +104,7 @@ Current displayed sensor/session values:
 - longitudinal G
 - peak speed
 - distance
-- 0-60 and 0-100 timing
+- launch-detected 0-60 and 0-100 timing
 - rolling speed averages
 
 ## Filtering And Accuracy
@@ -112,21 +113,21 @@ Stationary GNSS speed flicker is expected. DragyDash applies display/stat filter
 
 - below 5 km/h while stopped: displayed as 0
 - once moving, speed must fall to 2 km/h or below before returning to stopped state
-- no-fix packets are kept as raw samples for diagnostic CSV, but are not counted toward distance, acceleration targets, peak speed, or rolling averages
+- unusable-fix packets are kept as raw samples for diagnostic CSV, but are not counted toward distance, acceleration targets, peak speed, or rolling averages
 
-Rolling average buffers retain enough usable GNSS history for 15 km.
+Rolling average buffers compute exact distance-interpolated speed windows in O(1) amortized time per sample.
 
 ## Session Data
 
-Saved sessions are CSV files in the app documents area.
+Saved sessions are CSV files in the app documents area (excluded from iCloud backups and protected at rest).
 
 - Saving is on by default.
 - Session reset saves the current session first when saving is enabled and there are samples.
-- Manual save/export is available in Settings.
+- Manual save/export and optional GPS-coordinate redaction are available in Settings.
 - Only the newest 3 saved session files are retained.
 
-## Remaining Unknowns
+## Remaining Unknowns & Multi-Central Behavior
 
 - Whether all Dragy Pro firmware variants expose the same `FD00` layout.
 - Whether a richer raw IMU packet exists outside the decoded UBX stream.
-- Whether multiple centrals can maintain live connections to one Dragy Pro at the same time. This matters for the later ESP32 display.
+- **Single-central behavior observed:** Hands-on testing with the companion [DragyDash ESP32](https://github.com/jremick/dragy-dash-esp32) display showed that if the official Dragy app or iOS DragyDash is already connected, a second BLE central typically stalls or fails to receive `FD02` telemetry until the first central disconnects.

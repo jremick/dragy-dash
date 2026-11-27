@@ -4,7 +4,7 @@ import Testing
 
 struct DragyPacketDecoderTests {
   @Test func decodesRMCSpeedInKnots() throws {
-    let packet = "$GNRMC,092751.000,A,5321.6802,N,00630.3372,W,10.0,31.66,280511,,,A*43"
+    let packet = "$GNRMC,092751.000,A,5321.6802,N,00630.3372,W,10.0,31.66,280511,,,A*5F"
     let data = try #require(packet.data(using: .utf8))
 
     let snapshot = try #require(
@@ -18,7 +18,7 @@ struct DragyPacketDecoderTests {
   }
 
   @Test func decodesGGAFixDetails() throws {
-    let packet = "$GNGGA,092725.000,5321.6802,N,00630.3372,W,1,18,0.8,52.4,M,46.9,M,,*47"
+    let packet = "$GNGGA,092725.000,5321.6802,N,00630.3372,W,1,18,0.8,52.4,M,46.9,M,,*6B"
     let data = try #require(packet.data(using: .utf8))
 
     let snapshot = try #require(
@@ -34,7 +34,7 @@ struct DragyPacketDecoderTests {
   }
 
   @Test func decodesVTGSpeedInKPH() throws {
-    let packet = "$GNVTG,31.66,T,,M,10.0,N,18.5,K,A*2C"
+    let packet = "$GNVTG,31.66,T,,M,10.0,N,18.5,K,A*1C"
     let data = try #require(packet.data(using: .utf8))
 
     let snapshot = try #require(
@@ -47,8 +47,8 @@ struct DragyPacketDecoderTests {
 
   @Test func mergesMultipleNMEASentencesInOnePacket() throws {
     let packet = """
-    $GNRMC,092751.000,A,5321.6802,N,00630.3372,W,10.0,31.66,280511,,,A*43
-    $GNGGA,092725.000,5321.6802,N,00630.3372,W,1,18,0.8,52.4,M,46.9,M,,*47
+    $GNRMC,092751.000,A,5321.6802,N,00630.3372,W,10.0,31.66,280511,,,A*5F
+    $GNGGA,092725.000,5321.6802,N,00630.3372,W,1,18,0.8,52.4,M,46.9,M,,*6B
     """
     let data = try #require(packet.data(using: .utf8))
 
@@ -59,6 +59,31 @@ struct DragyPacketDecoderTests {
     #expect(abs(snapshot.speedKPH - 18.52) < 0.01)
     #expect(snapshot.satelliteCount == 18)
     #expect(snapshot.altitudeMeters == 52.4)
+  }
+
+  @Test func rejectsCorruptedNMEAChecksum() throws {
+    let packet = "$GNRMC,092751.000,A,5321.6802,N,00630.3372,W,10.0,31.66,280511,,,A*00"
+    let data = try #require(packet.data(using: .utf8))
+
+    let snapshot = DragyPacketDecoder().decode(data, characteristicUUID: "test", sourceName: "Dragy Pro")
+    #expect(snapshot == nil)
+  }
+
+  @Test func rejectsInvalidNMEACoordinateBounds() throws {
+    // Latitude 95 deg and minutes 75 are out of valid bounds.
+    let body = "GNGGA,092725.000,9575.0000,N,19000.0000,W,1,18,0.8,52.4,M,46.9,M,,"
+    var checksum: UInt8 = 0
+    for byte in body.utf8 {
+      checksum ^= byte
+    }
+    let packet = "$\(body)*\(String(format: "%02X", checksum))"
+    let data = try #require(packet.data(using: .utf8))
+
+    let snapshot = try #require(
+      DragyPacketDecoder().decode(data, characteristicUUID: "test", sourceName: "Dragy Pro")
+    )
+    #expect(snapshot.latitude == nil)
+    #expect(snapshot.longitude == nil)
   }
 
   @Test func ignoresUnknownBinaryPayload() {
@@ -84,6 +109,7 @@ struct DragyPacketDecoderTests {
       DragyPacketDecoder().decode(data, characteristicUUID: "FD02", sourceName: "Dragy Pro")
     )
 
+    #expect(snapshot.gpsTimeOfWeekMS == 123_456)
     #expect(abs(snapshot.speedKPH - 36.0) < 0.001)
     #expect(abs((snapshot.latitude ?? 0) - -37.8136) < 0.000001)
     #expect(abs((snapshot.longitude ?? 0) - 144.9631) < 0.000001)
@@ -92,6 +118,7 @@ struct DragyPacketDecoderTests {
     #expect(abs((snapshot.headingDegrees ?? 0) - 90) < 0.001)
     #expect(snapshot.satelliteCount == 18)
     #expect(snapshot.fixQuality == .threeD)
+    #expect(snapshot.gpsQuality == .good)
   }
 
   @Test func reassemblesFragmentedUBXNavPVT() throws {
@@ -126,6 +153,29 @@ struct DragyPacketDecoderTests {
     #expect(abs(snapshot.speedKPH - 36.0) < 0.001)
   }
 
+  @Test func reassemblerRecoversFrameAfterFalseSyncMarker() throws {
+    let validFrame = makeUBXNavPVT(
+      latitude: -37.8136,
+      longitude: 144.9631,
+      altitudeMillimeters: 51_200,
+      groundSpeedMillimetersPerSecond: 20_000,
+      headingScaled: 9_000_000,
+      horizontalAccuracyMillimeters: 900,
+      fixType: 3,
+      satelliteCount: 14
+    )
+    // False B5 62 header declaring payload length 92 bytes (0x5C 0x00) immediately followed by real frame.
+    let falseHeader = Data([0xB5, 0x62, 0x01, 0x07, 0x5C, 0x00, 0xAA, 0xBB])
+    var reassembler = DragyPacketReassembler()
+
+    let packets = reassembler.packets(
+      from: falseHeader + validFrame,
+      characteristicUUID: "0000fd02-0000-1000-8000-00805f9b34fb"
+    )
+
+    #expect(packets == [validFrame])
+  }
+
   @Test func zerosUBXSpeedWithoutUsableFix() throws {
     let data = makeUBXNavPVT(
       latitude: -37.8136,
@@ -144,6 +194,95 @@ struct DragyPacketDecoderTests {
 
     #expect(snapshot.speedKPH == 0)
     #expect(snapshot.fixQuality == .none)
+    #expect(!snapshot.isUsableFix)
+  }
+
+  @Test func zerosUBXSpeedWhenZeroSatellitesReported() throws {
+    let data = makeUBXNavPVT(
+      latitude: -37.8136,
+      longitude: 144.9631,
+      altitudeMillimeters: 51_200,
+      groundSpeedMillimetersPerSecond: 15_000,
+      headingScaled: 9_000_000,
+      horizontalAccuracyMillimeters: 900,
+      fixType: 3,
+      satelliteCount: 0
+    )
+
+    let snapshot = try #require(
+      DragyPacketDecoder().decode(data, characteristicUUID: "FD02", sourceName: "Dragy Pro")
+    )
+
+    #expect(snapshot.speedKPH == 0)
+    #expect(!snapshot.isUsableFix)
+  }
+
+  @Test func redactsSensitiveDataInDiagnosticReportByDefault() {
+    let deviceID = UUID()
+    let diagnostics = BLEDiagnostics(
+      devices: [
+        BLEDevice(
+          id: deviceID,
+          name: "DRG70-9A1B2C",
+          rssi: -52,
+          isDragyCandidate: true,
+          localName: "DRG70-9A1B2C",
+          manufacturerDataHex: "DE AD BE EF",
+          advertisedServiceUUIDs: ["FD00"],
+          lastSeen: .now
+        ),
+        BLEDevice(
+          id: UUID(),
+          name: "Bystander Phone",
+          rssi: -60,
+          isDragyCandidate: false,
+          localName: nil,
+          manufacturerDataHex: "11 22",
+          advertisedServiceUUIDs: [],
+          lastSeen: .now
+        )
+      ],
+      packetSamples: [
+        BLEPacketSample(timestamp: .now, characteristicUUID: "FD02", hex: "B5 62 01 07", asciiPreview: nil)
+      ],
+      events: [
+        BLELogEvent(timestamp: .now, message: "CONNECTED DRG70-9A1B2C id=\(deviceID.uuidString)")
+      ]
+    )
+
+    let telemetry = TelemetrySnapshot(
+      timestamp: .now,
+      speedKPH: 88,
+      headingDegrees: 180,
+      latitude: -37.8136,
+      longitude: 144.9631,
+      altitudeMeters: 50,
+      horizontalAccuracyMeters: 1.0,
+      satelliteCount: 16,
+      fixQuality: .threeD,
+      longitudinalG: nil,
+      lateralG: nil,
+      verticalG: nil,
+      yawRateDegreesPerSecond: nil,
+      sourceName: "DRG70-9A1B2C UBX"
+    )
+
+    let report = BLEDiagnosticReport.make(
+      status: .connected("DRG70-9A1B2C"),
+      diagnostics: diagnostics,
+      telemetry: telemetry,
+      batteryPercent: 84
+    )
+
+    #expect(!report.contains("-37.8136"))
+    #expect(!report.contains("144.9631"))
+    #expect(!report.contains("9A1B2C"))
+    #expect(!report.contains(deviceID.uuidString))
+    #expect(!report.contains("Bystander Phone"))
+    #expect(!report.contains("B5 62 01 07"))
+    #expect(report.contains("DRG70-******"))
+    #expect(report.contains("[redacted]"))
+    #expect(report.contains("[redacted GNSS payload]"))
   }
 }
 

@@ -36,6 +36,35 @@ struct TelemetryMotionEstimatorTests {
     #expect(result.yawRateDegreesPerSecond == 0)
   }
 
+  @Test func prefersGPSTimeOfWeekOverNoisyArrivalTimestamp() {
+    var estimator = TelemetryMotionEstimator()
+    let start = Date(timeIntervalSince1970: 1_800_000_000)
+
+    var first = snapshot(at: start, speedKPH: 0, heading: 0)
+    first.gpsTimeOfWeekMS = 10_000
+    var second = snapshot(at: start.addingTimeInterval(0.2), speedKPH: 36, heading: 0)
+    second.gpsTimeOfWeekMS = 12_000
+
+    _ = estimator.apply(to: first)
+    let result = estimator.apply(to: second)
+
+    // True iTOW delta is 2.0 s (10 m/s / 2 s / 9.80665 ≈ 0.51 g), not 0.2 s (5.1 g).
+    #expect(abs((result.longitudinalG ?? 0) - 0.51) < 0.02)
+  }
+
+  @Test func resetsMotionEstimationAcrossNoFixGap() {
+    var estimator = TelemetryMotionEstimator()
+    let start = Date(timeIntervalSince1970: 1_800_000_000)
+
+    _ = estimator.apply(to: snapshot(at: start, speedKPH: 80, heading: 0))
+    var noFix = snapshot(at: start.addingTimeInterval(0.5), speedKPH: 0, heading: 0)
+    noFix.fixQuality = .none
+    _ = estimator.apply(to: noFix)
+
+    let afterRecovery = estimator.apply(to: snapshot(at: start.addingTimeInterval(1.0), speedKPH: 85, heading: 0))
+    #expect(afterRecovery.longitudinalG == nil)
+  }
+
   private func snapshot(at date: Date, speedKPH: Double, heading: Double) -> TelemetrySnapshot {
     TelemetrySnapshot(
       timestamp: date,

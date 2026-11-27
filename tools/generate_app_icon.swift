@@ -108,8 +108,8 @@ func drawIcon(size: Int) -> NSBitmapImageRep {
     withCenter: center,
     radius: radius,
     startAngle: 205,
-    endAngle: 15,
-    clockwise: false
+    endAngle: 43,
+    clockwise: true
   )
   speedArc.stroke()
 
@@ -130,20 +130,21 @@ func drawIcon(size: Int) -> NSBitmapImageRep {
   )).fill()
 
   NSColor(calibratedRed: 0.12, green: 0.72, blue: 1, alpha: 0.92).setStroke()
-  let signalOrigin = CGPoint(x: CGFloat(size) * 0.285, y: CGFloat(size) * 0.73)
+  let signalOrigin = CGPoint(x: CGFloat(size) * 0.5, y: CGFloat(size) * 0.25)
   for index in 0..<3 {
     let signal = NSBezierPath()
     signal.lineWidth = CGFloat(size) * 0.018
     signal.lineCapStyle = .round
     signal.appendArc(
       withCenter: signalOrigin,
-      radius: CGFloat(size) * CGFloat(0.047 + Double(index) * 0.045),
-      startAngle: 300,
-      endAngle: 60,
+      radius: CGFloat(size) * CGFloat(0.044 + Double(index) * 0.038),
+      startAngle: 42,
+      endAngle: 138,
       clockwise: false
     )
     signal.stroke()
   }
+  NSColor(calibratedRed: 0.92, green: 0.98, blue: 1, alpha: 1).setFill()
   NSBezierPath(ovalIn: CGRect(
     x: signalOrigin.x - CGFloat(size) * 0.018,
     y: signalOrigin.y - CGFloat(size) * 0.018,

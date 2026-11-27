@@ -1,6 +1,6 @@
 import Foundation
 
-struct SavedTelemetrySession: Equatable, Identifiable {
+struct SavedTelemetrySession: Equatable, Identifiable, Sendable {
   let url: URL
   let createdAt: Date
   let byteCount: Int
@@ -26,8 +26,9 @@ final class SavedSessionStore {
     self.fileManager = fileManager
     self.defaults = defaults
     self.maxSavedSessions = maxSavedSessions
-    self.directoryURL = directoryURL ?? fileManager
-      .urls(for: .documentDirectory, in: .userDomainMask)[0]
+    let fallbackBase = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first
+      ?? fileManager.temporaryDirectory
+    self.directoryURL = directoryURL ?? fallbackBase
       .appendingPathComponent("Sessions", isDirectory: true)
   }
 
@@ -47,7 +48,8 @@ final class SavedSessionStore {
 
     let fileName = "dragydash-session-\(Self.fileTimestampString(from: date))-\(UUID().uuidString.prefix(6)).csv"
     let url = directoryURL.appendingPathComponent(fileName)
-    try csv.write(to: url, atomically: true, encoding: .utf8)
+    let data = Data(csv.utf8)
+    try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     try fileManager.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
     return try pruneAndLoadSessions()
   }
@@ -77,6 +79,11 @@ final class SavedSessionStore {
       at: directoryURL,
       withIntermediateDirectories: true
     )
+
+    var directory = directoryURL
+    var resourceValues = URLResourceValues()
+    resourceValues.isExcludedFromBackup = true
+    try? directory.setResourceValues(resourceValues)
   }
 
   private func pruneAndLoadSessions() throws -> [SavedTelemetrySession] {

@@ -1,0 +1,31 @@
+name: Hardware / Firmware Compatibility Report
+description: Report whether DragyDash works with your Dragy hardware revision
+labels: ["hardware"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help expand the compatibility table! Remember to mask serial suffixes (e.g., `DRG70-******`) and omit any location data.
+  - type: input
+    id: model
+    attributes:
+      label: Dragy Model Prefix
+      placeholder: "e.g., DRG70 (Dragy Pro) or DRG69 (Dragy v1)"
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Observed Result
+      options:
+        - Connects and streams live speed + battery
+        - Connects, streams speed, battery unknown
+        - Connects, stalls after handshake
+        - Not discovered during scan
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: Notes & Redacted Characteristic Summary
+      description: Share observed service/characteristic UUIDs or behaviors (no personal IDs or GPS coordinates).

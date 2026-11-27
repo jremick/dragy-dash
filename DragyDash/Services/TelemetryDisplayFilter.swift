@@ -1,6 +1,6 @@
 import Foundation
 
-struct TelemetryDisplayFilter {
+struct TelemetryDisplayFilter: Sendable {
   var startMovingSpeedKPH = 5.0
   var stopMovingSpeedKPH = 2.0
 
@@ -8,6 +8,12 @@ struct TelemetryDisplayFilter {
 
   mutating func apply(to snapshot: TelemetrySnapshot) -> TelemetrySnapshot {
     var displaySnapshot = snapshot
+
+    guard snapshot.isUsableFix else {
+      isMoving = false
+      displaySnapshot.speedKPH = 0
+      return displaySnapshot
+    }
 
     if isMoving {
       if snapshot.speedKPH <= stopMovingSpeedKPH {

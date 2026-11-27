@@ -1,6 +1,6 @@
 import Foundation
 
-enum BluetoothStatus: Equatable {
+enum BluetoothStatus: Equatable, Sendable {
   case unknown
   case resetting
   case unsupported
@@ -38,7 +38,7 @@ enum BluetoothStatus: Equatable {
   }
 }
 
-struct BLEDevice: Identifiable, Equatable {
+struct BLEDevice: Identifiable, Equatable, Sendable {
   let id: UUID
   var name: String
   var rssi: Int
@@ -49,14 +49,14 @@ struct BLEDevice: Identifiable, Equatable {
   var lastSeen: Date
 }
 
-struct BLECharacteristicInfo: Identifiable, Equatable {
+struct BLECharacteristicInfo: Identifiable, Equatable, Sendable {
   var id: String { "\(serviceUUID).\(characteristicUUID)" }
   let serviceUUID: String
   let characteristicUUID: String
   let properties: [String]
 }
 
-struct BLEDescriptorInfo: Identifiable, Equatable {
+struct BLEDescriptorInfo: Identifiable, Equatable, Sendable {
   var id: String { "\(serviceUUID).\(characteristicUUID).\(descriptorUUID)" }
   let serviceUUID: String
   let characteristicUUID: String
@@ -64,7 +64,7 @@ struct BLEDescriptorInfo: Identifiable, Equatable {
   let valueDescription: String?
 }
 
-struct BLEWriteTarget: Identifiable, Equatable {
+struct BLEWriteTarget: Identifiable, Equatable, Sendable {
   var id: String { "\(serviceUUID).\(characteristicUUID)" }
   let serviceUUID: String
   let characteristicUUID: String
@@ -76,7 +76,7 @@ struct BLEWriteTarget: Identifiable, Equatable {
   }
 }
 
-struct BLEPacketSample: Identifiable, Equatable {
+struct BLEPacketSample: Identifiable, Equatable, Sendable {
   let id = UUID()
   let timestamp: Date
   let characteristicUUID: String
@@ -84,13 +84,13 @@ struct BLEPacketSample: Identifiable, Equatable {
   let asciiPreview: String?
 }
 
-struct BLELogEvent: Identifiable, Equatable {
+struct BLELogEvent: Identifiable, Equatable, Sendable {
   let id = UUID()
   let timestamp: Date
   let message: String
 }
 
-struct BLEDiagnostics: Equatable {
+struct BLEDiagnostics: Equatable, Sendable {
   var devices: [BLEDevice] = []
   var characteristics: [BLECharacteristicInfo] = []
   var descriptors: [BLEDescriptorInfo] = []

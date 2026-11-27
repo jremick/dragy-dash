@@ -103,6 +103,68 @@ struct TelemetryRecorderTests {
     #expect(recorder.stats.sampleCount == 38)
   }
 
+  @Test func measuresAccelerationFromLaunchAfterWaitingParked() {
+    let recorder = TelemetryRecorder()
+    let start = Date(timeIntervalSince1970: 1_800_000_000)
+    recorder.start(at: start)
+
+    // Sit stationary for 90 seconds before launching.
+    recorder.record(snapshot(at: start, speedKPH: 0))
+    recorder.record(snapshot(at: start.addingTimeInterval(90), speedKPH: 0))
+    recorder.record(snapshot(at: start.addingTimeInterval(94), speedKPH: 100))
+
+    #expect(abs((recorder.stats.zeroToSixtyKPHSeconds ?? 0) - 2.4) < 0.02)
+    #expect(abs((recorder.stats.zeroToOneHundredKPHSeconds ?? 0) - 4.0) < 0.02)
+
+    // Come back to a stop and do a quicker second run; best time should win.
+    recorder.record(snapshot(at: start.addingTimeInterval(100), speedKPH: 0))
+    recorder.record(snapshot(at: start.addingTimeInterval(103), speedKPH: 100))
+
+    #expect(abs((recorder.stats.zeroToOneHundredKPHSeconds ?? 0) - 3.0) < 0.02)
+  }
+
+  @Test func doesNotRecordZeroToSixtyWithoutStationaryLaunch() {
+    let recorder = TelemetryRecorder()
+    let start = Date(timeIntervalSince1970: 1_800_000_000)
+    recorder.start(at: start)
+
+    recorder.record(snapshot(at: start, speedKPH: 40))
+    recorder.record(snapshot(at: start.addingTimeInterval(3), speedKPH: 110))
+
+    #expect(recorder.stats.zeroToSixtyKPHSeconds == nil)
+    #expect(recorder.stats.zeroToOneHundredKPHSeconds == nil)
+  }
+
+  @Test func redactsLocationAndSanitizesFormulaInjectionInCSV() {
+    let start = Date(timeIntervalSince1970: 1_800_000_000)
+    let csv = TelemetrySessionExporter.csv(
+      samples: [snapshot(at: start, speedKPH: 100, sourceName: "=HYPERLINK(\"https://example.com\")")],
+      redactLocation: true
+    )
+
+    #expect(!csv.contains("-37.8"))
+    #expect(!csv.contains("144.9"))
+    #expect(csv.contains("\"'=HYPERLINK(\"\"https://example.com\"\")\""))
+  }
+
+  @Test func includesStationaryTimeInRollingAverages() {
+    let recorder = TelemetryRecorder()
+    let start = Date(timeIntervalSince1970: 1_800_000_000)
+    recorder.start(at: start)
+
+    // Drive 1,000 m in 100 s at 36 km/h (10 m/s), then sit stationary for 100 s.
+    for second in 0...100 {
+      recorder.record(snapshot(at: start.addingTimeInterval(Double(second)), speedKPH: 36))
+    }
+    #expect(abs((recorder.stats.averageSpeedLast1KMKPH ?? 0) - 36.0) < 0.2)
+
+    for second in 101...200 {
+      recorder.record(snapshot(at: start.addingTimeInterval(Double(second)), speedKPH: 0))
+    }
+    // 1,000 m over ~200 s => ~18 km/h (boundary transition at s=100->101 adds 5 m).
+    #expect(abs((recorder.stats.averageSpeedLast1KMKPH ?? 0) - 18.0) < 0.3)
+  }
+
   private func snapshot(
     at date: Date,
     speedKPH: Double,

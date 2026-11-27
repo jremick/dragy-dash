@@ -20,4 +20,15 @@ struct DragySPPProtocolTests {
     #expect(result.rawValue == 10_000)
     #expect(abs((result.speedKPH ?? 0) - 36.0) < 0.001)
   }
+
+  @Test func fallbackScanPreservesValueBytesEqualToCommandByte() throws {
+    // 0x0101 = 257 -> 257 * 0.0036 = 0.9252 km/h; fallback scan must not strip 0x01 bytes.
+    let value: [UInt8] = [0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+    let payload: [UInt8] = [0xAD, 0xFF] + value + [0xFB, 0x01] + DragySPPFeature.currentSpeed.address
+    let frame = Data([0x0D, 0x0A, 0x0D, 0x0A] + [UInt8(payload.count + 1)] + payload + [0xFB] + [0x0D, 0x0A, 0x0D, 0x0A])
+
+    let result = try #require(DragySPPProtocol.parseReadResult(frame))
+    #expect(result.feature == .currentSpeed)
+    #expect(result.rawValue == 257)
+  }
 }

@@ -1,6 +1,7 @@
 import Foundation
 
-struct DragyPacketReassembler {
+struct DragyPacketReassembler: Sendable {
+  private static let maxBufferBytes = 8_192
   private var buffers: [String: [UInt8]] = [:]
 
   mutating func reset() {
@@ -8,17 +9,31 @@ struct DragyPacketReassembler {
   }
 
   mutating func packets(from data: Data, characteristicUUID: String) -> [Data] {
-    guard characteristicUUID.uppercased() == "FD02" else {
+    guard let key = canonicalStreamKey(for: characteristicUUID) else {
       return [data]
     }
 
-    buffers[characteristicUUID, default: []].append(contentsOf: data)
-    return drainUBXPackets(for: characteristicUUID)
+    var buffer = buffers[key, default: []]
+    buffer.append(contentsOf: data)
+    if buffer.count > Self.maxBufferBytes {
+      buffer.removeFirst(buffer.count - Self.maxBufferBytes)
+    }
+
+    let packets = drainUBXPackets(from: &buffer)
+    buffers[key] = buffer
+    return packets
   }
 
-  private mutating func drainUBXPackets(for characteristicUUID: String) -> [Data] {
+  private func canonicalStreamKey(for characteristicUUID: String) -> String? {
+    let normalized = characteristicUUID.uppercased()
+    if normalized == "FD02" || normalized == "0000FD02-0000-1000-8000-00805F9B34FB" {
+      return "FD02"
+    }
+    return nil
+  }
+
+  private func drainUBXPackets(from buffer: inout [UInt8]) -> [Data] {
     var packets: [Data] = []
-    var buffer = buffers[characteristicUUID, default: []]
 
     while true {
       guard let syncIndex = buffer.firstSyncIndex() else {
@@ -47,11 +62,16 @@ struct DragyPacketReassembler {
         break
       }
 
-      packets.append(Data(buffer[0..<frameLength]))
-      buffer.removeFirst(frameLength)
+      if buffer.hasValidUBXChecksum(frameLength: frameLength) {
+        packets.append(Data(buffer[0..<frameLength]))
+        buffer.removeFirst(frameLength)
+      } else {
+        // False sync or corrupted frame: advance past the 2-byte sync marker
+        // so any valid UBX frame embedded inside the payload bytes is preserved.
+        buffer.removeFirst(2)
+      }
     }
 
-    buffers[characteristicUUID] = buffer
     return packets
   }
 }
@@ -69,5 +89,20 @@ private extension [UInt8] {
     }
 
     return nil
+  }
+
+  func hasValidUBXChecksum(frameLength: Int) -> Bool {
+    guard frameLength >= 8, count >= frameLength else {
+      return false
+    }
+
+    var checksumA: UInt8 = 0
+    var checksumB: UInt8 = 0
+    for index in 2..<(frameLength - 2) {
+      checksumA &+= self[index]
+      checksumB &+= checksumA
+    }
+
+    return checksumA == self[frameLength - 2] && checksumB == self[frameLength - 1]
   }
 }

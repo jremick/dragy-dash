@@ -5,36 +5,46 @@ struct BLEDiagnosticReport {
     status: BluetoothStatus,
     diagnostics: BLEDiagnostics,
     telemetry: TelemetrySnapshot,
-    batteryPercent: Int?
+    batteryPercent: Int?,
+    redacted: Bool = true
   ) -> String {
     var lines: [String] = []
-    lines.append("DragyDash BLE Diagnostic Report")
+    lines.append("DragyDash BLE Diagnostic Report\(redacted ? " (Redacted)" : "")")
     lines.append("Generated: \(DragyDateFormatter.string(from: .now))")
-    lines.append("Status: \(status.label)")
-    lines.append("Telemetry Source: \(telemetry.sourceName)")
+    lines.append("Status: \(redacted ? redactDeviceIdentifiers(in: status.label) : status.label)")
+    lines.append("Telemetry Source: \(redacted ? redactDeviceIdentifiers(in: telemetry.sourceName) : telemetry.sourceName)")
     lines.append("Speed: \(String(format: "%.2f", telemetry.speedKPH)) km/h")
     if let batteryPercent {
       lines.append("Battery: \(batteryPercent)%")
     }
     lines.append("Fix: \(telemetry.fixQuality.rawValue)")
-    lines.append("Coordinate: \(telemetry.coordinateLabel)")
+    if redacted {
+      let hasCoords = telemetry.latitude != nil && telemetry.longitude != nil
+      lines.append("Coordinate: \(hasCoords ? "[redacted]" : "--")")
+    } else {
+      lines.append("Coordinate: \(telemetry.coordinateLabel)")
+    }
     lines.append("")
 
     lines.append("Events (\(diagnostics.events.count))")
     for event in diagnostics.events {
-      lines.append("- \(DragyDateFormatter.string(from: event.timestamp)) \(event.message)")
+      let message = redacted ? redactDeviceIdentifiers(in: event.message) : event.message
+      lines.append("- \(DragyDateFormatter.string(from: event.timestamp)) \(message)")
     }
     lines.append("")
 
-    lines.append("Devices (\(diagnostics.devices.count))")
-    for device in diagnostics.devices {
-      lines.append("- \(device.name) [\(device.id.uuidString)]")
+    let visibleDevices = redacted ? diagnostics.devices.filter(\.isDragyCandidate) : diagnostics.devices
+    lines.append("Devices (\(visibleDevices.count))")
+    for device in visibleDevices {
+      let name = redacted ? redactDeviceIdentifiers(in: device.name) : device.name
+      let id = redacted ? "[redacted-uuid]" : device.id.uuidString
+      lines.append("- \(name) [\(id)]")
       lines.append("  RSSI: \(device.rssi)")
       lines.append("  Dragy Candidate: \(device.isDragyCandidate ? "yes" : "no")")
       if let localName = device.localName {
-        lines.append("  Local Name: \(localName)")
+        lines.append("  Local Name: \(redacted ? redactDeviceIdentifiers(in: localName) : localName)")
       }
-      if let manufacturerDataHex = device.manufacturerDataHex {
+      if !redacted, let manufacturerDataHex = device.manufacturerDataHex {
         lines.append("  Manufacturer Data: \(manufacturerDataHex)")
       }
       if !device.advertisedServiceUUIDs.isEmpty {
@@ -57,7 +67,7 @@ struct BLEDiagnosticReport {
       lines.append("  Characteristic: \(descriptor.characteristicUUID)")
       lines.append("  Descriptor: \(descriptor.descriptorUUID)")
       if let valueDescription = descriptor.valueDescription {
-        lines.append("  Value: \(valueDescription)")
+        lines.append("  Value: \(redacted ? redactDeviceIdentifiers(in: valueDescription) : valueDescription)")
       }
     }
     lines.append("")
@@ -74,12 +84,33 @@ struct BLEDiagnosticReport {
     lines.append("Packet Samples (\(diagnostics.packetSamples.count))")
     for packet in diagnostics.packetSamples {
       lines.append("- \(DragyDateFormatter.string(from: packet.timestamp)) \(packet.characteristicUUID)")
-      lines.append("  HEX: \(packet.hex)")
-      if let asciiPreview = packet.asciiPreview {
-        lines.append("  ASCII: \(asciiPreview)")
+      if redacted && packet.characteristicUUID.uppercased().contains("FD02") {
+        lines.append("  HEX: [redacted GNSS payload]")
+      } else {
+        lines.append("  HEX: \(packet.hex)")
+        if let asciiPreview = packet.asciiPreview {
+          lines.append("  ASCII: \(redacted ? redactDeviceIdentifiers(in: asciiPreview) : asciiPreview)")
+        }
       }
     }
 
     return lines.joined(separator: "\n")
+  }
+
+  static func redactDeviceIdentifiers(in text: String) -> String {
+    var result = text
+    // Mask Dragy serial suffixes such as DRG70-123ABC -> DRG70-******
+    result = result.replacingOccurrences(
+      of: #"(?i)\b(DRG\d{0,3})-[A-Z0-9]{2,}\b"#,
+      with: "$1-******",
+      options: .regularExpression
+    )
+    // Mask standard UUIDs such as CoreBluetooth peripheral identifiers
+    result = result.replacingOccurrences(
+      of: #"(?i)\b[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\b"#,
+      with: "[redacted-uuid]",
+      options: .regularExpression
+    )
+    return result
   }
 }
