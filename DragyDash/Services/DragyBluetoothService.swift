@@ -34,6 +34,7 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
   private var sppCharacteristic: CBCharacteristic?
   private var sppPollTimer: Timer?
   private var hasStartedSPPPolling = false
+  private var hasAttemptedLegacyServiceDiscovery = false
   private var reconnectTask: Task<Void, Never>?
   private var lastPacketDiagnosticsEmit: Date = .distantPast
   private var packetReassembler = DragyPacketReassembler()
@@ -269,10 +270,18 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
       return
     }
 
+    let hasFD00 = services.contains { $0.uuid.uuidString.uppercased() == "FD00" }
+    if !hasFD00 && !hasAttemptedLegacyServiceDiscovery {
+      hasAttemptedLegacyServiceDiscovery = true
+      log("SERVICE_FALLBACK reason=no_fd00 action=discover_all_services")
+      peripheral.discoverServices(nil)
+      return
+    }
+
     for service in services {
       log("SERVICE uuid=\(service.uuid.uuidString)")
       let uuid = service.uuid.uuidString.uppercased()
-      if uuid == "FD00" || uuid == "180A" {
+      if uuid == "FD00" || uuid == "180A" || !hasFD00 {
         peripheral.discoverCharacteristics(nil, for: service)
       }
     }
@@ -428,6 +437,7 @@ final class DragyBluetoothService: NSObject, @preconcurrency CBCentralManagerDel
     sppCharacteristic = nil
     stopSPPPolling()
     hasStartedSPPPolling = false
+    hasAttemptedLegacyServiceDiscovery = false
     loggedCharacteristics.removeAll()
     packetReassembler.reset()
   }

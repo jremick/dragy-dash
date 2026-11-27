@@ -147,6 +147,24 @@ struct TelemetryRecorderTests {
     #expect(csv.contains("\"'=HYPERLINK(\"\"https://example.com\"\")\""))
   }
 
+  @Test func includesStationaryTimeInRollingAverages() {
+    let recorder = TelemetryRecorder()
+    let start = Date(timeIntervalSince1970: 1_800_000_000)
+    recorder.start(at: start)
+
+    // Drive 1,000 m in 100 s at 36 km/h (10 m/s), then sit stationary for 100 s.
+    for second in 0...100 {
+      recorder.record(snapshot(at: start.addingTimeInterval(Double(second)), speedKPH: 36))
+    }
+    #expect(abs((recorder.stats.averageSpeedLast1KMKPH ?? 0) - 36.0) < 0.2)
+
+    for second in 101...200 {
+      recorder.record(snapshot(at: start.addingTimeInterval(Double(second)), speedKPH: 0))
+    }
+    // 1,000 m over ~200 s => ~18 km/h (boundary transition at s=100->101 adds 5 m).
+    #expect(abs((recorder.stats.averageSpeedLast1KMKPH ?? 0) - 18.0) < 0.3)
+  }
+
   private func snapshot(
     at date: Date,
     speedKPH: Double,

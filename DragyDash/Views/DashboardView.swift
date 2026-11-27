@@ -602,6 +602,14 @@ private struct SettingsView: View {
                 }
                 .buttonStyle(.borderedProminent)
 
+                Button {
+                  store.scanForDragy(includeAllDevices: true)
+                } label: {
+                  Label("Legacy", systemImage: "dot.radiowaves.left.and.right")
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Scans all BLE devices for legacy Dragy DRG69 hardware")
+
                 if store.connectedDeviceName != nil {
                   Button(role: .destructive) {
                     store.disconnectDragy()
@@ -617,22 +625,22 @@ private struct SettingsView: View {
                   }
                   .buttonStyle(.bordered)
                 }
-
-                Button {
-                  copyToPasteboard(store.diagnosticReport(redacted: true))
-                  copiedDiagnostics = true
-                  Task {
-                    try? await Task.sleep(for: .seconds(2))
-                    copiedDiagnostics = false
-                  }
-                } label: {
-                  Label(
-                    copiedDiagnostics ? "Copied" : "Copy Log",
-                    systemImage: copiedDiagnostics ? "checkmark" : "doc.on.doc"
-                  )
-                }
-                .buttonStyle(.bordered)
               }
+
+              Button {
+                copyToPasteboard(store.diagnosticReport(redacted: true))
+                copiedDiagnostics = true
+                Task {
+                  try? await Task.sleep(for: .seconds(2))
+                  copiedDiagnostics = false
+                }
+              } label: {
+                Label(
+                  copiedDiagnostics ? "Copied" : "Copy Redacted Log",
+                  systemImage: copiedDiagnostics ? "checkmark" : "doc.on.doc"
+                )
+              }
+              .buttonStyle(.bordered)
 
               Text("Copied diagnostic logs redact GPS coordinates, GNSS payloads, and device IDs.")
                 .font(.caption)

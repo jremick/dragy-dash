@@ -101,10 +101,8 @@ final class TelemetryRecorder {
       if elapsed > 0, elapsed < Self.maxSampleGapSeconds {
         let averageMetersPerSecond = ((lastStatsSample.speedKPH + statsSnapshot.speedKPH) / 2) / 3.6
         let segmentDistance = max(0, averageMetersPerSecond * elapsed)
-        if segmentDistance > 0 {
-          stats.distanceMeters += segmentDistance
-          appendDistanceSegment(distanceMeters: segmentDistance, elapsedSeconds: elapsed)
-        }
+        stats.distanceMeters += segmentDistance
+        appendDistanceSegment(distanceMeters: segmentDistance, elapsedSeconds: elapsed)
         updateAccelerationTargets(from: lastStatsSample, to: statsSnapshot, elapsedBetweenSamples: elapsed)
       }
     }
@@ -229,7 +227,11 @@ final class TelemetryRecorder {
 
   private func appendDistanceSegment(distanceMeters: Double, elapsedSeconds: Double) {
     let segment = DistanceSegment(distanceMeters: distanceMeters, elapsedSeconds: elapsedSeconds)
-    segmentStorage.append(segment)
+    if distanceMeters == 0, let lastIndex = segmentStorage.indices.last, segmentStorage[lastIndex].distanceMeters == 0 {
+      segmentStorage[lastIndex].elapsedSeconds += elapsedSeconds
+    } else {
+      segmentStorage.append(segment)
+    }
     let endSeq = segmentBaseSeq + segmentStorage.count
 
     stats.averageSpeedLast1KMKPH = window1KM.append(segment, segments: segmentStorage, baseSeq: segmentBaseSeq, endSeq: endSeq)
@@ -295,7 +297,7 @@ final class TelemetryRecorder {
 
 private struct DistanceSegment {
   let distanceMeters: Double
-  let elapsedSeconds: Double
+  var elapsedSeconds: Double
 }
 
 private struct RollingDistanceWindow {
@@ -327,8 +329,10 @@ private struct RollingDistanceWindow {
 
     while tailSeq < endSeq {
       let oldest = segments[tailSeq - baseSeq]
-      if accumulatedDistance - oldest.distanceMeters >= targetMeters {
-        accumulatedDistance -= oldest.distanceMeters
+      let remainingDistance = accumulatedDistance - oldest.distanceMeters
+      let dropLeadingZeroStop = oldest.distanceMeters == 0 && remainingDistance + Self.distanceToleranceMeters >= targetMeters
+      if remainingDistance >= targetMeters || dropLeadingZeroStop {
+        accumulatedDistance = remainingDistance
         accumulatedElapsed -= oldest.elapsedSeconds
         tailSeq += 1
       } else {
